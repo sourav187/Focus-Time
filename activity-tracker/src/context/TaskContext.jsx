@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
 const TaskContext = createContext();
@@ -11,32 +11,37 @@ export const TaskProvider = ({ children, user }) => {
   const [todayFocus, setTodayFocus] = useState(0); // in hours
   const [todaySessions, setTodaySessions] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(1);
+  const [dailyGoalMinutes, setDailyGoalMinutes] = useState(0); 
+  const [isGoalSet, setIsGoalSet] = useState(false);
+  const [totalFocusTime, setTotalFocusTime] = useState(0); 
+  
+  const lastSyncedStats = useRef({ focus: 0, sessions: 0, goal: 0, isGoalSet: false });
 
   const todayStr = new Date().toISOString().split('T')[0];
 
   // Helper to calculate streak from history
   const calculateStreak = (history) => {
     if (!history || history.length === 0) return 0;
-    
+
     // history is already ordered by date DESC from Supabase
     const dates = history.map(h => h.stats_date);
     let streak = 0;
     let checkDate = new Date(); // Start with today
-    
+
     // If the latest log isn't today OR yesterday, the streak is broken
     const latestLog = dates[0];
     const checkStrToday = checkDate.toISOString().split('T')[0];
-    
+
     checkDate.setDate(checkDate.getDate() - 1);
     const checkStrYesterday = checkDate.toISOString().split('T')[0];
-    
+
     if (latestLog !== checkStrToday && latestLog !== checkStrYesterday) {
-      return 0; 
+      return 0;
     }
 
     // Reset checkDate to the latest log date to start counting correctly
     checkDate = new Date(latestLog);
-    
+
     for (const logDate of dates) {
       const expectedStr = checkDate.toISOString().split('T')[0];
       if (logDate === expectedStr) {
@@ -51,27 +56,31 @@ export const TaskProvider = ({ children, user }) => {
 
   // Step 1: Initialize stats (Supabase OR Guest Mode)
   useEffect(() => {
-    if (!user) {
-      // GUEST MODE: Load from localStorage
-      const savedStats = localStorage.getItem(`focus_stats_guest_${todayStr}`);
-      if (savedStats) {
-        const { focus, sessions } = JSON.parse(savedStats);
-        setTodayFocus(focus || 0);
-        setTodaySessions(sessions || 0);
-      } else {
-        setTodayFocus(0);
-        setTodaySessions(0);
-      }
-      setCurrentStreak(1);
-      return;
-    }
-
-    // AUTH MODE: Fetch from Supabase
     const fetchDailyStats = async () => {
+      if (!user) {
+        // GUEST MODE: Load from localStorage
+        const savedStats = localStorage.getItem(`focus_stats_guest_${todayStr}`);
+        if (savedStats) {
+          const { focus, sessions, goal, isGoalSet: savedIsGoalSet } = JSON.parse(savedStats);
+          setTodayFocus(focus || 0);
+          setTodaySessions(sessions || 0);
+          setDailyGoalMinutes(goal || 0);
+          setIsGoalSet(!!savedIsGoalSet);
+        } else {
+          setTodayFocus(0);
+          setTodaySessions(0);
+          setDailyGoalMinutes(0);
+          setIsGoalSet(false);
+        }
+        setCurrentStreak(1);
+        return;
+      }
+
+      // AUTH MODE: Fetch from Supabase
       // 1. Fetch Today's Stats
       const { data: todayData } = await supabase
         .from('daily_stats')
-        .select('total_focus_hours, sessions_count')
+        .select('total_focus_hours, sessions_count, daily_goal_minutes, goal_achieved')
         .eq('user_id', user.id)
         .eq('stats_date', todayStr)
         .single();
@@ -79,9 +88,18 @@ export const TaskProvider = ({ children, user }) => {
       if (todayData) {
         setTodayFocus(Number(todayData.total_focus_hours) || 0);
         setTodaySessions(todayData.sessions_count || 0);
+        if (todayData.daily_goal_minutes !== null && todayData.daily_goal_minutes !== undefined) {
+          setDailyGoalMinutes(Number(todayData.daily_goal_minutes));
+          setIsGoalSet(true); 
+        } else {
+          setDailyGoalMinutes(0);
+          setIsGoalSet(false);
+        }
       } else {
         setTodayFocus(0);
         setTodaySessions(0);
+        setDailyGoalMinutes(0);
+        setIsGoalSet(false);
       }
 
       // 2. Fetch History for Streak and Totals
@@ -99,47 +117,22 @@ export const TaskProvider = ({ children, user }) => {
         setCurrentStreak(0);
         setTotalFocusTime(0);
       }
+
+      // 3. Initialize sync ref with what we just fetched to avoid immediate re-sync
+      lastSyncedStats.current = {
+        focus: Number(todayData?.total_focus_hours || 0),
+        sessions: todayData?.sessions_count || 0,
+        goal: Number(todayData?.daily_goal_minutes || 0),
+        isGoalSet: (todayData?.daily_goal_minutes !== null && todayData?.daily_goal_minutes !== undefined)
+      };
     };
 
-    fetchDailyStats();
-  }, [user, todayStr]);
-
-  // Step 2: Sync stats (Supabase OR Guest Mode)
-  useEffect(() => {
-    if (user) {
-      // AUTH MODE: Sync to DB if we have focus/sessions
-      if (todayFocus > 0 || todaySessions > 0) {
-        const syncStats = async () => {
-          await supabase
-            .from('daily_stats')
-            .upsert({
-              user_id: user.id,
-              stats_date: todayStr,
-              total_focus_hours: todayFocus,
-              sessions_count: todaySessions,
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id, stats_date' });
-        };
-        syncStats();
-      }
-    } else {
-      // GUEST MODE: Sync to localStorage
-      localStorage.setItem(`focus_stats_guest_${todayStr}`, JSON.stringify({
-        focus: todayFocus,
-        sessions: todaySessions
-      }));
-    }
-  }, [todayFocus, todaySessions, user, todayStr]);
-
-  useEffect(() => {
-    if (!user) {
-      setTasks([]);
-      setIsLoading(false);
-      return;
-    }
-
     const fetchTasks = async () => {
-      setIsLoading(true);
+      if (!user) {
+        setTasks([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -148,7 +141,6 @@ export const TaskProvider = ({ children, user }) => {
       if (error) {
         console.error('Error fetching tasks:', error.message);
       } else {
-        // Map data from DB to frontend model
         const mappedTasks = data.map(t => ({
           id: t.id,
           title: t.title,
@@ -159,15 +151,64 @@ export const TaskProvider = ({ children, user }) => {
         }));
         setTasks(mappedTasks);
       }
+    };
+
+    const init = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchTasks(), fetchDailyStats()]);
       setIsLoading(false);
     };
 
-    fetchTasks();
-  }, [user]);
+    init();
+  }, [user, todayStr]);
+
+  // Step 2: Sync stats (Supabase OR Guest Mode)
+  useEffect(() => {
+    if (isLoading) return; // Wait until initial fetch finishes
+
+    if (user) {
+      // Check if data has actually changed compared to what's in DB/last synced
+      const hasChanged = 
+        todayFocus !== lastSyncedStats.current.focus ||
+        todaySessions !== lastSyncedStats.current.sessions ||
+        dailyGoalMinutes !== lastSyncedStats.current.goal ||
+        isGoalSet !== lastSyncedStats.current.isGoalSet;
+
+      if (!hasChanged) return;
+
+      // AUTH MODE: Sync to DB
+      if (isGoalSet || todayFocus > 0 || todaySessions > 0) {
+        const syncStats = async () => {
+          await supabase
+            .from('daily_stats')
+            .upsert({
+              user_id: user.id,
+              stats_date: todayStr,
+              total_focus_hours: todayFocus,
+              sessions_count: todaySessions,
+              daily_goal_minutes: dailyGoalMinutes || null,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id, stats_date' });
+          
+          // Update ref after successful sync
+          lastSyncedStats.current = { focus: todayFocus, sessions: todaySessions, goal: dailyGoalMinutes, isGoalSet: isGoalSet };
+        };
+        syncStats();
+      }
+    } else {
+      // GUEST MODE: Sync to localStorage
+      localStorage.setItem(`focus_stats_guest_${todayStr}`, JSON.stringify({
+        focus: todayFocus,
+        sessions: todaySessions,
+        goal: dailyGoalMinutes,
+        isGoalSet: isGoalSet
+      }));
+    }
+  }, [todayFocus, todaySessions, dailyGoalMinutes, isGoalSet, user, todayStr, isLoading]);
 
   const addTask = async (newTask) => {
     if (!user) return alert("Please login to save tasks.");
-    
+
     const dbTask = {
       user_id: user.id,
       title: newTask.title,
@@ -178,19 +219,19 @@ export const TaskProvider = ({ children, user }) => {
     };
 
     const { data, error } = await supabase.from('tasks').insert([dbTask]).select();
-    
+
     if (error) {
-       console.error("Error adding task:", error.message);
+      console.error("Error adding task:", error.message);
     } else if (data && data.length > 0) {
-       const t = data[0];
-       setTasks(prev => [{
-          id: t.id,
-          title: t.title,
-          date: t.task_date,
-          needed: Number(t.needed),
-          logged: Number(t.logged),
-          priority: t.priority
-       }, ...prev]);
+      const t = data[0];
+      setTasks(prev => [{
+        id: t.id,
+        title: t.title,
+        date: t.task_date,
+        needed: Number(t.needed),
+        logged: Number(t.logged),
+        priority: t.priority
+      }, ...prev]);
     }
   };
 
@@ -203,7 +244,7 @@ export const TaskProvider = ({ children, user }) => {
     const newLogged = isCompleted ? 0 : task.needed;
 
     // Optimistic local update
-    setTasks(prev => prev.map(t => 
+    setTasks(prev => prev.map(t =>
       t.id === taskId ? { ...t, logged: newLogged } : t
     ));
 
@@ -224,7 +265,7 @@ export const TaskProvider = ({ children, user }) => {
 
   const logFocusToTask = async (taskId, hoursToAdd) => {
     if (!user || !taskId) return;
-    
+
     const hours = Number(hoursToAdd.toFixed(4));
     if (hours <= 0) return;
 
@@ -234,7 +275,7 @@ export const TaskProvider = ({ children, user }) => {
     const newLogged = Number((task.logged + hours).toFixed(4));
 
     // Update local task state
-    setTasks(prev => prev.map(t => 
+    setTasks(prev => prev.map(t =>
       t.id === taskId ? { ...t, logged: newLogged } : t
     ));
 
@@ -243,7 +284,7 @@ export const TaskProvider = ({ children, user }) => {
       .from('tasks')
       .update({ logged: newLogged })
       .eq('id', taskId);
-      
+
     if (error) console.error("Error syncing task time:", error.message);
   };
 
@@ -252,17 +293,22 @@ export const TaskProvider = ({ children, user }) => {
   };
 
   return (
-    <TaskContext.Provider value={{ 
-      tasks, 
-      addTask, 
-      toggleTaskStatus, 
-      logFocusToTask, 
+    <TaskContext.Provider value={{
+      tasks,
+      addTask,
+      toggleTaskStatus,
+      logFocusToTask,
       addFocusTime,
-      todayStr, 
+      todayStr,
       isLoading,
       todayFocus,
       todaySessions,
       currentStreak,
+      dailyGoalMinutes,
+      setDailyGoalMinutes,
+      isGoalSet,
+      setIsGoalSet,
+      totalFocusTime,
       incrementSessions
     }}>
       {children}

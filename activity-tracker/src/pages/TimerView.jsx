@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Clock, CalendarDays, Flame, ListTodo, LaptopMinimalCheck } from 'lucide-react';
+import { Play, Pause, RotateCcw, Clock, CalendarDays, Flame, ListTodo, LaptopMinimalCheck, CheckCircle2, Circle, AlertCircle, Lock } from 'lucide-react';
 import { useTasks } from '../context/TaskContext';
+import { triggerGoalConfetti } from '../utils/confettiHelper';
+import GoalModal from '../components/GoalModal';
 
 export default function TimerView() {
-  const { tasks, logFocusToTask, addFocusTime, todayStr, todayFocus, todaySessions, incrementSessions, currentStreak } = useTasks();
+  const {
+    tasks,
+    logFocusToTask,
+    addFocusTime,
+    todayStr,
+    todayFocus,
+    todaySessions,
+    incrementSessions,
+    currentStreak,
+    dailyGoalMinutes,
+    setDailyGoalMinutes,
+    isGoalSet,
+    setIsGoalSet,
+    isLoading
+  } = useTasks();
 
   const [filterDate, setFilterDate] = useState(todayStr);
   const [filterPriority, setFilterPriority] = useState('All');
@@ -12,10 +28,40 @@ export default function TimerView() {
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
 
-  // Constants
-  const dailyGoalHours = 5;
-  const focusProgress = Math.min(100, (todayFocus / dailyGoalHours) * 100);
+  // Calculations & Progress
+  const totalFocusMinutes = Math.round(todayFocus * 60);
+  const progressRatio = dailyGoalMinutes > 0 ? Math.min(1, totalFocusMinutes / dailyGoalMinutes) : 0;
+  const progressPercentage = (progressRatio * 100).toFixed(0);
+
+  // Status System
+  let goalStatus = "Not Started";
+  let statusColor = "bg-[#B4A594]";
+  let StatusIcon = Circle;
+
+  if (totalFocusMinutes >= dailyGoalMinutes && dailyGoalMinutes > 0) {
+    goalStatus = "Goal Achieved!";
+    statusColor = "bg-[#10B981]";
+    StatusIcon = CheckCircle2;
+  } else if (totalFocusMinutes > 0) {
+    goalStatus = "In Progress";
+    statusColor = "bg-[#E89D71]";
+    StatusIcon = AlertCircle;
+  }
+
+  // Confetti Trigger (Once per day)
+  useEffect(() => {
+    if (totalFocusMinutes >= dailyGoalMinutes && dailyGoalMinutes > 0) {
+      const storageKey = `confetti_shown_${todayStr}`;
+      const hasShown = localStorage.getItem(storageKey);
+
+      if (!hasShown) {
+        triggerGoalConfetti();
+        localStorage.setItem(storageKey, 'true');
+      }
+    }
+  }, [totalFocusMinutes, dailyGoalMinutes, todayStr]);
 
   const availableTasks = tasks.filter(t =>
     t.logged < t.needed &&
@@ -114,22 +160,82 @@ export default function TimerView() {
 
   return (
     <main className="max-w-5xl mx-auto px-8 py-8 flex flex-col items-center gap-12 w-full animate-in fade-in zoom-in-95 duration-500">
-      {/* Daily Goal */}
-      <div className="w-full max-w-md bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#F4EFE6] transition-transform hover:-translate-y-1 duration-300">
-        <div className="flex justify-between items-end mb-3">
-          <div>
-            <p className="text-sm text-[#8C7A6B] font-medium mb-1">Daily Goal</p>
-            <h2 className="text-lg font-semibold">{todayFocus.toFixed(2)} / {dailyGoalHours} hours</h2>
+      {/* Daily Goal Section */}
+      <div className="w-full max-w-md bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#F4EFE6] transition-all duration-300 min-h-[160px] flex flex-col justify-center">
+        {isLoading ? (
+          <div className="flex justify-center p-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E89D71]"></div>
           </div>
-          <span className="text-sm font-medium text-[#E89D71]">{Math.round(focusProgress)}%</span>
-        </div>
-        <div className="w-full bg-[#F4EFE6] rounded-full h-2.5 overflow-hidden">
-          <div
-            className="bg-[#E89D71] h-2.5 rounded-full transition-all duration-1000 ease-out"
-            style={{ width: `${focusProgress}%` }}
-          ></div>
-        </div>
+        ) : (
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-[#8C7A6B] font-bold text-sm uppercase tracking-wider">Today's Goal 🎯</h3>
+              </div>
+
+              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-white shadow-sm transition-colors duration-300 ${statusColor}`}>
+                <StatusIcon size={12} strokeWidth={3} />
+                <span>{goalStatus}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-2">
+                {isGoalSet ? (
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-3xl font-bold text-[#4A3F35] tracking-tight">
+                      <span className="text-[#E89D71]">{totalFocusMinutes}</span>
+                      <span className="text-[#8C7A6B] mx-2 text-2xl">/</span>
+                      <span>{dailyGoalMinutes}</span>
+                      <span className="text-sm font-medium text-[#8C7A6B] ml-2">min</span>
+                    </h2>
+                    <div className="text-[#8C7A6B] opacity-40" title="Goal locked for today">
+                      <Lock size={18} />
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsGoalModalOpen(true)}
+                    className="bg-[#FAF8F5] hover:bg-[#F4EFE6] text-[#E89D71] font-bold py-2.5 px-6 rounded-2xl transition-all flex items-center gap-2 border-2 border-dashed border-[#E89D71] border-opacity-30"
+                  >
+                    <Clock size={18} />
+                    <span>Add Daily Goal</span>
+                  </button>
+                )}
+              </div>
+              <div className="text-right">
+                <span className="text-sm font-bold text-[#E89D71] opacity-70">{progressPercentage}%</span>
+              </div>
+            </div>
+
+            <div className={`relative w-full h-4 bg-[#F4EFE6] rounded-full overflow-hidden transition-all duration-500 ${totalFocusMinutes >= dailyGoalMinutes && isGoalSet ? 'ring-2 ring-green-500' : ''}`}>
+              <div
+                className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out 
+                  ${totalFocusMinutes >= dailyGoalMinutes && isGoalSet
+                    ? 'bg-gradient-to-r from-green-500 to-[#10B981] shadow-[0_0_15px_rgba(34,197,94,0.4)]'
+                    : 'bg-gradient-to-r from-[#E89D71] to-[#f4a261]'}`}
+                style={{ width: `${progressPercentage}%` }}
+              ></div>
+            </div>
+
+            {totalFocusMinutes >= dailyGoalMinutes && isGoalSet && (
+              <div className="mt-3 text-center text-green-600 font-bold text-xs uppercase tracking-[0.2em] animate-bounce">
+                🎉 Goal Achieved!
+              </div>
+            )}
+          </>
+        )}
       </div>
+
+      <GoalModal
+        isOpen={isGoalModalOpen}
+        onClose={() => setIsGoalModalOpen(false)}
+        currentGoalMinutes={dailyGoalMinutes}
+        onSave={(mins) => {
+          setDailyGoalMinutes(mins);
+          setIsGoalSet(true);
+        }}
+      />
 
       {/* Timer UI */}
       <div className="flex flex-col items-center justify-center my-4 relative">
@@ -140,17 +246,26 @@ export default function TimerView() {
         <div className="flex items-center gap-4 mt-6">
           <button
             onClick={toggleTimer}
-            className={`flex items-center gap-2 px-8 py-4 rounded-full font-medium text-lg transition-all duration-300 shadow-sm active:scale-95 ${isActive
-              ? 'bg-white text-[#4A3F35] border border-[#E5E5E5] hover:bg-gray-50'
-              : 'bg-[#E89D71] text-white hover:bg-[#d68b60] hover:shadow-md hover:-translate-y-0.5'
+            disabled={!isGoalSet}
+            title={!isGoalSet ? "Please set a daily goal first" : ""}
+            className={`flex items-center gap-2 px-8 py-4 rounded-full font-medium text-lg transition-all duration-300 shadow-sm active:scale-95 ${!isGoalSet
+              ? 'bg-[#FAF8F5] text-[#B4A594] cursor-not-allowed border-2 border-dashed border-[#B4A594] opacity-70'
+              : isActive
+                ? 'bg-white text-[#4A3F35] border border-[#E5E5E5] hover:bg-gray-50'
+                : 'bg-[#E89D71] text-white hover:bg-[#d68b60] hover:shadow-md hover:-translate-y-0.5'
               }`}
           >
-            {isActive ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
-            {isActive ? 'Pause' : 'Start Focus'}
+            {isActive ? <Pause size={24} /> : <Play size={24} className={!isGoalSet ? "" : "ml-1"} />}
+            <span>{isActive ? 'Pause' : 'Start Focus'}</span>
           </button>
           <button
             onClick={resetTimer}
-            className="p-4 rounded-full bg-white text-[#8C7A6B] border border-[#F4EFE6] hover:text-[#4A3F35] hover:bg-[#F4EFE6] hover:-translate-y-0.5 transition-all duration-300 shadow-sm active:scale-95"
+            disabled={!isGoalSet}
+            title={!isGoalSet ? "Please set a daily goal first" : ""}
+            className={`p-4 rounded-full bg-white border border-[#F4EFE6] transition-all duration-300 shadow-sm active:scale-95 ${!isGoalSet
+              ? 'text-[#B4A594] cursor-not-allowed opacity-50 grayscale'
+              : 'text-[#8C7A6B] hover:text-[#4A3F35] hover:bg-[#F4EFE6] hover:-translate-y-0.5'
+              }`}
             aria-label="Reset Timer"
           >
             <RotateCcw size={24} />

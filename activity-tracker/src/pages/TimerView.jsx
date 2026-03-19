@@ -3,7 +3,7 @@ import { Play, Pause, RotateCcw, Clock, CalendarDays, Flame, ListTodo, LaptopMin
 import { useTasks } from '../context/TaskContext';
 
 export default function TimerView() {
-  const { tasks, addLoggedTime, todayStr } = useTasks();
+  const { tasks, logFocusToTask, addFocusTime, todayStr, todayFocus, todaySessions, incrementSessions, currentStreak } = useTasks();
 
   const [filterDate, setFilterDate] = useState(todayStr);
   const [filterPriority, setFilterPriority] = useState('All');
@@ -11,6 +11,11 @@ export default function TimerView() {
 
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+
+  // Constants
+  const dailyGoalHours = 5;
+  const focusProgress = Math.min(100, (todayFocus / dailyGoalHours) * 100);
 
   const availableTasks = tasks.filter(t =>
     t.logged < t.needed &&
@@ -20,7 +25,7 @@ export default function TimerView() {
 
   // Auto-clear selection if filter removes the selected task
   useEffect(() => {
-    if (selectedTaskId && !availableTasks.find(t => t.id === parseInt(selectedTaskId))) {
+    if (selectedTaskId && !availableTasks.find(t => t.id === selectedTaskId)) {
       setSelectedTaskId('');
     }
   }, [availableTasks, selectedTaskId]);
@@ -28,27 +33,83 @@ export default function TimerView() {
   useEffect(() => {
     let interval = null;
     if (isActive && timeLeft > 0) {
-      interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-    } else if (timeLeft === 0) {
+      interval = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && isActive) {
       setIsActive(false);
-      // Automatically log the deep work session string if a task is selected
+      // Final log on completion (Log the full 25 mins)
+      const fullSessionHours = 25 / 60;
+      addFocusTime(fullSessionHours);
       if (selectedTaskId) {
-        addLoggedTime(parseInt(selectedTaskId), 25 / 60);
+        logFocusToTask(selectedTaskId, fullSessionHours);
       }
+      setSessionStartTime(null);
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft, selectedTaskId, addLoggedTime]);
+  }, [isActive, timeLeft, selectedTaskId, logFocusToTask, addFocusTime]);
 
-  const toggleTimer = () => setIsActive(!isActive);
+  // Handle page refresh/close persistence
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isActive && sessionStartTime) {
+        const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 3600);
+        addFocusTime(elapsedHours);
+        if (selectedTaskId) {
+          logFocusToTask(selectedTaskId, elapsedHours);
+        }
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isActive, selectedTaskId, sessionStartTime, addFocusTime, logFocusToTask]);
+
+  const toggleTimer = () => {
+    if (!isActive) {
+      // Starting or Resuming
+      if (timeLeft === 25 * 60) {
+        incrementSessions();
+      }
+      setSessionStartTime(Date.now());
+      setIsActive(true);
+    } else {
+      // Pausing: Calculate and log the actual elapsed time
+      setIsActive(false);
+      if (sessionStartTime) {
+        const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 3600);
+        addFocusTime(elapsedHours);
+        if (selectedTaskId) {
+          logFocusToTask(selectedTaskId, elapsedHours);
+        }
+      }
+      setSessionStartTime(null);
+    }
+  };
+
   const resetTimer = () => {
+    if (isActive && sessionStartTime) {
+      const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 3600);
+      addFocusTime(elapsedHours);
+      if (selectedTaskId) {
+        logFocusToTask(selectedTaskId, elapsedHours);
+      }
+    }
     setIsActive(false);
     setTimeLeft(25 * 60);
+    setSessionStartTime(null);
   };
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const formatFocusTime = (hours) => {
+    const totalMinutes = Math.round(hours * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
   return (
@@ -58,12 +119,15 @@ export default function TimerView() {
         <div className="flex justify-between items-end mb-3">
           <div>
             <p className="text-sm text-[#8C7A6B] font-medium mb-1">Daily Goal</p>
-            <h2 className="text-lg font-semibold">3.5 / 5 hours</h2>
+            <h2 className="text-lg font-semibold">{todayFocus.toFixed(2)} / {dailyGoalHours} hours</h2>
           </div>
-          <span className="text-sm font-medium text-[#E89D71]">70%</span>
+          <span className="text-sm font-medium text-[#E89D71]">{Math.round(focusProgress)}%</span>
         </div>
         <div className="w-full bg-[#F4EFE6] rounded-full h-2.5 overflow-hidden">
-          <div className="bg-[#E89D71] h-2.5 rounded-full w-[70%] transition-all duration-1000 ease-out"></div>
+          <div
+            className="bg-[#E89D71] h-2.5 rounded-full transition-all duration-1000 ease-out"
+            style={{ width: `${focusProgress}%` }}
+          ></div>
         </div>
       </div>
 
@@ -102,7 +166,7 @@ export default function TimerView() {
           </div>
           <div>
             <p className="text-sm text-[#8C7A6B] font-medium">Today's Focus</p>
-            <p className="text-2xl font-semibold mt-1">3h 30m</p>
+            <p className="text-2xl font-semibold mt-1">{formatFocusTime(todayFocus)}</p>
           </div>
         </div>
 
@@ -112,7 +176,7 @@ export default function TimerView() {
           </div>
           <div>
             <p className="text-sm text-[#8C7A6B] font-medium">Sessions</p>
-            <p className="text-2xl font-semibold mt-1">7</p>
+            <p className="text-2xl font-semibold mt-1">{todaySessions}</p>
           </div>
         </div>
 
@@ -122,7 +186,7 @@ export default function TimerView() {
           </div>
           <div>
             <p className="text-sm text-[#8C7A6B] font-medium">Current Streak</p>
-            <p className="text-2xl font-semibold mt-1">12 days</p>
+            <p className="text-2xl font-semibold mt-1">{currentStreak} {currentStreak === 1 ? 'day' : 'days'}</p>
           </div>
         </div>
       </div>

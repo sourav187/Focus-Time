@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Clock, CalendarDays, Flame, ListTodo, LaptopMinimalCheck, CheckCircle2, Circle, AlertCircle, Lock } from 'lucide-react';
+import { Play, Pause, RotateCcw, Clock, CalendarDays, Flame, ListTodo, LaptopMinimalCheck, CheckCircle2, Circle, AlertCircle, Lock, Settings, Coffee, Zap } from 'lucide-react';
 import { useTasks } from '../context/TaskContext';
 import { triggerGoalConfetti } from '../utils/confettiHelper';
 import GoalModal from '../components/GoalModal';
@@ -18,17 +18,24 @@ export default function TimerView() {
     setDailyGoalMinutes,
     isGoalSet,
     setIsGoalSet,
-    isLoading
+    isLoading,
+    timerSettings,
+    setTimerSettings,
+    timerMode,
+    setTimerMode,
+    completedSessions,
+    setCompletedSessions
   } = useTasks();
 
   const [filterDate, setFilterDate] = useState(todayStr);
   const [filterPriority, setFilterPriority] = useState('All');
   const [selectedTaskId, setSelectedTaskId] = useState('');
 
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [timeLeft, setTimeLeft] = useState(timerSettings.focusDuration * 60);
   const [isActive, setIsActive] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState(null);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Calculations & Progress
   const totalFocusMinutes = Math.round(todayFocus * 60);
@@ -75,53 +82,73 @@ export default function TimerView() {
       setSelectedTaskId('');
     }
   }, [availableTasks, selectedTaskId]);
+  // Update timeLeft when mode or settings change (if not active)
+  useEffect(() => {
+    if (!isActive) {
+      const duration = timerMode === 'focus' 
+        ? timerSettings.focusDuration 
+        : (timerMode === 'shortBreak' ? timerSettings.shortBreakDuration : timerSettings.longBreakDuration);
+      setTimeLeft(duration * 60);
+    }
+  }, [timerMode, timerSettings.focusDuration, timerSettings.shortBreakDuration, timerSettings.longBreakDuration, isActive]);
 
+  const handleSessionComplete = () => {
+    setIsActive(false);
+    
+    if (timerMode === 'focus') {
+      // Focus session complete
+      if (sessionStartTime) {
+        const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 3600);
+        const minutesToAdd = Math.min(timerSettings.focusDuration, elapsedHours * 60);
+        
+        addFocusTime(minutesToAdd / 60);
+        if (selectedTaskId) {
+          logFocusToTask(selectedTaskId, minutesToAdd / 60);
+        }
+        incrementSessions();
+        setCompletedSessions(prev => prev + 1);
+      }
+      
+      // Select next break mode
+      const nextMode = (completedSessions + 1) % timerSettings.sessionsBeforeLongBreak === 0 
+        ? 'longBreak' 
+        : 'shortBreak';
+      setTimerMode(nextMode);
+      
+      const nextDuration = nextMode === 'shortBreak' ? timerSettings.shortBreakDuration : timerSettings.longBreakDuration;
+      setTimeLeft(nextDuration * 60);
+      
+      triggerGoalConfetti(); 
+    } else {
+      // Break session complete
+      setTimerMode('focus');
+      setTimeLeft(timerSettings.focusDuration * 60);
+    }
+    setSessionStartTime(null);
+  };
+
+  // Timer Interval
   useEffect(() => {
     let interval = null;
     if (isActive && timeLeft > 0) {
       interval = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
+        setTimeLeft((prev) => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0 && isActive) {
-      setIsActive(false);
-      // Final log on completion (Log the full 25 mins)
-      const fullSessionHours = 25 / 60;
-      addFocusTime(fullSessionHours);
-      if (selectedTaskId) {
-        logFocusToTask(selectedTaskId, fullSessionHours);
-      }
-      setSessionStartTime(null);
+    } else if (timeLeft <= 0 && isActive) {
+      handleSessionComplete();
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft, selectedTaskId, logFocusToTask, addFocusTime]);
-
-  // Handle page refresh/close persistence
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (isActive && sessionStartTime) {
-        const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 3600);
-        addFocusTime(elapsedHours);
-        if (selectedTaskId) {
-          logFocusToTask(selectedTaskId, elapsedHours);
-        }
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isActive, selectedTaskId, sessionStartTime, addFocusTime, logFocusToTask]);
+  }, [isActive, timeLeft]);
 
   const toggleTimer = () => {
     if (!isActive) {
-      // Starting or Resuming
-      if (timeLeft === 25 * 60) {
-        incrementSessions();
-      }
+      // Start or Resume
       setSessionStartTime(Date.now());
       setIsActive(true);
     } else {
-      // Pausing: Calculate and log the actual elapsed time
+      // Pause
       setIsActive(false);
-      if (sessionStartTime) {
+      if (timerMode === 'focus' && sessionStartTime) {
         const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 3600);
         addFocusTime(elapsedHours);
         if (selectedTaskId) {
@@ -133,16 +160,21 @@ export default function TimerView() {
   };
 
   const resetTimer = () => {
-    if (isActive && sessionStartTime) {
+    // Log current progress before reset if in focus mode
+    if (isActive && timerMode === 'focus' && sessionStartTime) {
       const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 3600);
       addFocusTime(elapsedHours);
       if (selectedTaskId) {
         logFocusToTask(selectedTaskId, elapsedHours);
       }
     }
+    
     setIsActive(false);
-    setTimeLeft(25 * 60);
     setSessionStartTime(null);
+    const duration = timerMode === 'focus' 
+      ? timerSettings.focusDuration 
+      : (timerMode === 'shortBreak' ? timerSettings.shortBreakDuration : timerSettings.longBreakDuration);
+    setTimeLeft(duration * 60);
   };
 
   const formatTime = (seconds) => {
@@ -237,10 +269,97 @@ export default function TimerView() {
         }}
       />
 
+      {/* Timer Mode Selector */}
+      <div className="flex gap-2 bg-[#FAF8F5] p-1.5 rounded-2xl border border-[#F4EFE6] shadow-sm">
+        <button
+          onClick={() => setTimerMode('focus')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${timerMode === 'focus' ? 'bg-[#E89D71] text-white shadow-md' : 'text-[#8C7A6B] hover:bg-white'}`}
+        >
+          <Zap size={14} />
+          Focus
+        </button>
+        <button
+          onClick={() => setTimerMode('shortBreak')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${timerMode === 'shortBreak' ? 'bg-[#10B981] text-white shadow-md' : 'text-[#8C7A6B] hover:bg-white'}`}
+        >
+          <Coffee size={14} />
+          Short Break
+        </button>
+        <button
+          onClick={() => setTimerMode('longBreak')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${timerMode === 'longBreak' ? 'bg-[#059669] text-white shadow-md' : 'text-[#8C7A6B] hover:bg-white'}`}
+        >
+          <Coffee size={14} />
+          Long Break
+        </button>
+        <div className="w-[1px] bg-[#F4EFE6] mx-1"></div>
+        <button
+          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+          className={`p-2 rounded-xl transition-all ${isSettingsOpen ? 'bg-white text-[#4A3F35] shadow-inner' : 'text-[#8C7A6B] hover:bg-white'}`}
+        >
+          <Settings size={18} className={isSettingsOpen ? 'rotate-90 transition-transform duration-300' : 'transition-transform duration-300'} />
+        </button>
+      </div>
+
+      {/* Settings Panel */}
+      {isSettingsOpen && (
+        <div className="w-full max-w-sm bg-white p-6 rounded-3xl shadow-xl border border-[#F4EFE6] animate-in slide-in-from-top-4 duration-300">
+          <h4 className="text-[#4A3F35] font-bold text-sm mb-4 flex items-center gap-2">
+             <Settings size={16} /> 
+             Timer Settings
+          </h4>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-medium text-[#8C7A6B]">Focus duration (min)</label>
+              <input 
+                type="number" 
+                value={timerSettings.focusDuration} 
+                onChange={(e) => setTimerSettings({...timerSettings, focusDuration: parseInt(e.target.value) || 1})}
+                className="w-16 bg-[#FAF8F5] border-transparent border-2 focus:border-[#E89D71] rounded-lg p-1 text-center font-bold text-sm outline-none"
+              />
+            </div>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-medium text-[#8C7A6B]">Short break (min)</label>
+              <input 
+                type="number" 
+                value={timerSettings.shortBreakDuration} 
+                onChange={(e) => setTimerSettings({...timerSettings, shortBreakDuration: parseInt(e.target.value) || 1})}
+                className="w-16 bg-[#FAF8F5] border-transparent border-2 focus:border-[#10B981] rounded-lg p-1 text-center font-bold text-sm outline-none"
+              />
+            </div>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-medium text-[#8C7A6B]">Long break (min)</label>
+              <input 
+                type="number" 
+                value={timerSettings.longBreakDuration} 
+                onChange={(e) => setTimerSettings({...timerSettings, longBreakDuration: parseInt(e.target.value) || 1})}
+                className="w-16 bg-[#FAF8F5] border-transparent border-2 focus:border-[#059669] rounded-lg p-1 text-center font-bold text-sm outline-none"
+              />
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-[#F4EFE6]">
+              <label className="text-xs font-medium text-[#8C7A6B]">Long break after (sessions)</label>
+              <input 
+                type="number" 
+                value={timerSettings.sessionsBeforeLongBreak} 
+                onChange={(e) => setTimerSettings({...timerSettings, sessionsBeforeLongBreak: parseInt(e.target.value) || 1})}
+                className="w-16 bg-[#FAF8F5] border-transparent border-2 focus:border-[#4A3F35] rounded-lg p-1 text-center font-bold text-sm outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Timer UI */}
       <div className="flex flex-col items-center justify-center my-4 relative">
-        <div className="text-[8rem] leading-none font-medium tracking-tighter text-[#4A3F35] drop-shadow-sm tabular-nums">
+        <div 
+          className={`text-[8rem] leading-none font-medium tracking-tighter drop-shadow-sm tabular-nums transition-colors duration-500
+            ${timerMode === 'focus' ? 'text-[#4A3F35]' : timerMode === 'shortBreak' ? 'text-[#10B981]' : 'text-[#059669]'}`}
+        >
           {formatTime(timeLeft)}
+        </div>
+        
+        <div className="text-xs font-bold uppercase tracking-widest text-[#B4A594] mt-2 mb-4">
+          {timerMode === 'focus' ? 'Time to focus' : 'Rest time'} • {completedSessions} sessions done
         </div>
 
         <div className="flex items-center gap-4 mt-6">

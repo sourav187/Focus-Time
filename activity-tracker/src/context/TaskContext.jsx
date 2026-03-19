@@ -15,6 +15,16 @@ export const TaskProvider = ({ children, user }) => {
   const [isGoalSet, setIsGoalSet] = useState(false);
   const [totalFocusTime, setTotalFocusTime] = useState(0); 
   
+  // Timer Settings & Mode
+  const [timerSettings, setTimerSettings] = useState({
+    focusDuration: 25,
+    shortBreakDuration: 5,
+    longBreakDuration: 15,
+    sessionsBeforeLongBreak: 4
+  });
+  const [timerMode, setTimerMode] = useState('focus'); // 'focus', 'shortBreak', 'longBreak'
+  const [completedSessions, setCompletedSessions] = useState(0);
+
   const lastSyncedStats = useRef({ focus: 0, sessions: 0, goal: 0, isGoalSet: false });
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -61,11 +71,12 @@ export const TaskProvider = ({ children, user }) => {
         // GUEST MODE: Load from localStorage
         const savedStats = localStorage.getItem(`focus_stats_guest_${todayStr}`);
         if (savedStats) {
-          const { focus, sessions, goal, isGoalSet: savedIsGoalSet } = JSON.parse(savedStats);
+          const { focus, sessions, goal, isGoalSet: savedIsGoalSet, settings } = JSON.parse(savedStats);
           setTodayFocus(focus || 0);
           setTodaySessions(sessions || 0);
           setDailyGoalMinutes(goal || 0);
           setIsGoalSet(!!savedIsGoalSet);
+          if (settings) setTimerSettings(settings);
         } else {
           setTodayFocus(0);
           setTodaySessions(0);
@@ -201,10 +212,11 @@ export const TaskProvider = ({ children, user }) => {
         focus: todayFocus,
         sessions: todaySessions,
         goal: dailyGoalMinutes,
-        isGoalSet: isGoalSet
+        isGoalSet: isGoalSet,
+        settings: timerSettings
       }));
     }
-  }, [todayFocus, todaySessions, dailyGoalMinutes, isGoalSet, user, todayStr, isLoading]);
+  }, [todayFocus, todaySessions, dailyGoalMinutes, isGoalSet, timerSettings, user, todayStr, isLoading]);
 
   const addTask = async (newTask) => {
     if (!user) return alert("Please login to save tasks.");
@@ -309,6 +321,12 @@ export const TaskProvider = ({ children, user }) => {
       isGoalSet,
       setIsGoalSet,
       totalFocusTime,
+      timerSettings,
+      setTimerSettings,
+      timerMode,
+      setTimerMode,
+      completedSessions,
+      setCompletedSessions,
       incrementSessions
     }}>
       {children}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Clock, CalendarDays, Flame, ListTodo, LaptopMinimalCheck, CheckCircle2, Circle, AlertCircle, Lock, Settings, Coffee, Zap } from 'lucide-react';
 import { useTasks } from '../context/TaskContext';
 import { triggerGoalConfetti } from '../utils/confettiHelper';
+import { soundHelper } from '../utils/soundHelper';
 import GoalModal from '../components/GoalModal';
 
 export default function TimerView() {
@@ -94,6 +95,7 @@ export default function TimerView() {
 
   const handleSessionComplete = () => {
     setIsActive(false);
+    soundHelper.playCompletion(); // End of session sound
     
     if (timerMode === 'focus') {
       // Focus session complete
@@ -143,6 +145,7 @@ export default function TimerView() {
   const toggleTimer = () => {
     if (!isActive) {
       // Start or Resume
+      soundHelper.playNotification(); // Feedback for starting
       setSessionStartTime(Date.now());
       setIsActive(true);
     } else {
@@ -371,11 +374,13 @@ export default function TimerView() {
               ? 'bg-[#FAF8F5] text-[#B4A594] cursor-not-allowed border-2 border-dashed border-[#B4A594] opacity-70'
               : isActive
                 ? 'bg-white text-[#4A3F35] border border-[#E5E5E5] hover:bg-gray-50'
-                : 'bg-[#E89D71] text-white hover:bg-[#d68b60] hover:shadow-md hover:-translate-y-0.5'
+                : timerMode === 'focus'
+                  ? 'bg-[#E89D71] text-white hover:bg-[#d68b60] hover:shadow-md hover:-translate-y-0.5'
+                  : 'bg-[#10B981] text-white hover:bg-[#059669] hover:shadow-md hover:-translate-y-0.5'
               }`}
           >
             {isActive ? <Pause size={24} /> : <Play size={24} className={!isGoalSet ? "" : "ml-1"} />}
-            <span>{isActive ? 'Pause' : 'Start Focus'}</span>
+            <span>{isActive ? 'Pause' : (timerMode === 'focus' ? 'Start Focus' : 'Start Break')}</span>
           </button>
           <button
             onClick={resetTimer}
@@ -426,7 +431,7 @@ export default function TimerView() {
       </div>
 
       {/* 3-Part Task Selector (Moved below Stats Grid) */}
-      <div className="w-full max-w-4xl bg-white p-6 md:p-8 rounded-[2rem] border border-[#F4EFE6] shadow-[0_8px_30px_rgb(0,0,0,0.04)] mt-4 mb-20 animate-in slide-in-from-bottom-4 duration-500 hover:shadow-[0_8px_40px_rgb(0,0,0,0.06)] transition-shadow">
+      <div className="w-full bg-white p-6 md:p-8 rounded-[2rem] border border-[#F4EFE6] shadow-[0_8px_30px_rgb(0,0,0,0.04)] mt-4 mb-20 animate-in slide-in-from-bottom-4 duration-500 hover:shadow-[0_8px_40px_rgb(0,0,0,0.06)] transition-shadow">
         <div className="flex flex-col sm:flex-row sm:items-center justify-center gap-4 mb-8 w-full">
           <div className="flex items-center justify-center gap-4 text-center">
             <div className="p-3 bg-gradient-to-br from-[#FAF8F5] to-[#F4EFE6] rounded-[1rem] text-[#E89D71] shadow-inner shrink-0">
@@ -442,7 +447,7 @@ export default function TimerView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 w-full items-start bg-gradient-to-br from-[#FAF8F5]/80 to-transparent p-6 rounded-3xl border border-[#F4EFE6]/50">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full items-start bg-gradient-to-br from-[#FAF8F5]/80 to-transparent p-6 rounded-3xl border border-[#F4EFE6]/50">
           <div className="md:col-span-1 flex flex-col gap-2">
             <label className="text-xs font-bold uppercase tracking-widest text-[#8C7A6B] ml-1">
               Date
@@ -478,7 +483,7 @@ export default function TimerView() {
             </div>
           </div>
 
-          <div className="md:col-span-2 flex flex-col gap-2">
+          <div className="md:col-span-1 flex flex-col gap-2">
             <label className="text-xs font-bold uppercase tracking-widest text-[#8C7A6B] ml-1">
               Select Task
             </label>

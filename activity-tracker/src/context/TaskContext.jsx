@@ -27,23 +27,37 @@ export const TaskProvider = ({ children, user }) => {
 
   const lastSyncedStats = useRef({ focus: 0, sessions: 0, goal: 0, isGoalSet: false });
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Get local YYYY-MM-DD
+  const getLocalDate = () => {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  };
+
+  const todayStr = getLocalDate();
 
   // Helper to calculate streak from history
   const calculateStreak = (history) => {
     if (!history || history.length === 0) return 0;
 
-    // history is already ordered by date DESC from Supabase
+    const toLocalStr = (date) => {
+      const offset = date.getTimezoneOffset();
+      const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+      return localDate.toISOString().split('T')[0];
+    };
+
     const dates = history.map(h => h.stats_date);
     let streak = 0;
     let checkDate = new Date(); // Start with today
 
-    // If the latest log isn't today OR yesterday, the streak is broken
-    const latestLog = dates[0];
-    const checkStrToday = checkDate.toISOString().split('T')[0];
-
+    // Use local time for checks
+    const checkStrToday = toLocalStr(checkDate);
+    
     checkDate.setDate(checkDate.getDate() - 1);
-    const checkStrYesterday = checkDate.toISOString().split('T')[0];
+    const checkStrYesterday = toLocalStr(checkDate);
+
+    const latestLog = dates[0];
 
     if (latestLog !== checkStrToday && latestLog !== checkStrYesterday) {
       return 0;
@@ -53,7 +67,7 @@ export const TaskProvider = ({ children, user }) => {
     checkDate = new Date(latestLog);
 
     for (const logDate of dates) {
-      const expectedStr = checkDate.toISOString().split('T')[0];
+      const expectedStr = toLocalStr(checkDate);
       if (logDate === expectedStr) {
         streak++;
         checkDate.setDate(checkDate.getDate() - 1);
@@ -82,6 +96,8 @@ export const TaskProvider = ({ children, user }) => {
           setTodaySessions(0);
           setDailyGoalMinutes(0);
           setIsGoalSet(false);
+          setCompletedSessions(0);
+          setTimerMode('focus');
         }
         setCurrentStreak(1);
         return;
@@ -111,6 +127,8 @@ export const TaskProvider = ({ children, user }) => {
         setTodaySessions(0);
         setDailyGoalMinutes(0);
         setIsGoalSet(false);
+        setCompletedSessions(0);
+        setTimerMode('focus');
       }
 
       // 2. Fetch History for Streak and Totals
@@ -218,32 +236,36 @@ export const TaskProvider = ({ children, user }) => {
     }
   }, [todayFocus, todaySessions, dailyGoalMinutes, isGoalSet, timerSettings, user, todayStr, isLoading]);
 
-  const addTask = async (newTask) => {
+  const addTask = async (taskOrTasks) => {
     if (!user) return alert("Please login to save tasks.");
 
-    const dbTask = {
+    const tasksArray = Array.isArray(taskOrTasks) ? taskOrTasks : [taskOrTasks];
+    
+    const dbTasks = tasksArray.map(t => ({
       user_id: user.id,
-      title: newTask.title,
-      task_date: newTask.date,
-      needed: Number(newTask.needed),
+      title: t.title,
+      task_date: t.date,
+      needed: Number(t.needed) / 60, // UI sends minutes, DB stores hours
       logged: 0,
-      priority: newTask.priority || 'Medium'
-    };
+      priority: t.priority || 'Medium',
+      category: t.category || 'Personal'
+    }));
 
-    const { data, error } = await supabase.from('tasks').insert([dbTask]).select();
+    const { data, error } = await supabase.from('tasks').insert(dbTasks).select();
 
     if (error) {
-      console.error("Error adding task:", error.message);
+      console.error("Error adding tasks:", error.message);
     } else if (data && data.length > 0) {
-      const t = data[0];
-      setTasks(prev => [{
+      const mapped = data.map(t => ({
         id: t.id,
         title: t.title,
         date: t.task_date,
         needed: Number(t.needed),
         logged: Number(t.logged),
-        priority: t.priority
-      }, ...prev]);
+        priority: t.priority,
+        category: t.category
+      }));
+      setTasks(prev => [...mapped, ...prev]);
     }
   };
 

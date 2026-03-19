@@ -4,6 +4,8 @@ import { useTasks } from '../context/TaskContext';
 import { triggerGoalConfetti } from '../utils/confettiHelper';
 import { soundHelper } from '../utils/soundHelper';
 import GoalModal from '../components/GoalModal';
+import AddTaskModal from '../components/AddTaskModal';
+import { Plus } from 'lucide-react';
 
 export default function TimerView() {
   const {
@@ -36,6 +38,7 @@ export default function TimerView() {
   const [isActive, setIsActive] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState(null);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Calculations & Progress
@@ -434,15 +437,21 @@ export default function TimerView() {
       <div className="w-full bg-white p-6 md:p-8 rounded-[2rem] border border-[#F4EFE6] shadow-[0_8px_30px_rgb(0,0,0,0.04)] mt-4 mb-20 animate-in slide-in-from-bottom-4 duration-500 hover:shadow-[0_8px_40px_rgb(0,0,0,0.06)] transition-shadow">
         <div className="flex flex-col sm:flex-row sm:items-center justify-center gap-4 mb-8 w-full">
           <div className="flex items-center justify-center gap-4 text-center">
-            <div className="p-3 bg-gradient-to-br from-[#FAF8F5] to-[#F4EFE6] rounded-[1rem] text-[#E89D71] shadow-inner shrink-0">
-              <LaptopMinimalCheck size={24} strokeWidth={2.5} />
+            <div className="p-3 bg-gradient-to-br from-[#FAF8F5] to-[#F4EFE6] rounded-[1rem] text-[#E89D71] shadow-inner shrink-0 cursor-pointer hover:bg-[#F4EFE6] transition-all group"
+              onClick={() => setIsAddTaskModalOpen(true)}
+              title="Add New Task"
+            >
+              <Plus size={24} strokeWidth={2.5} className="group-hover:scale-110 transition-transform" />
             </div>
             <div>
               <h3 className="text-xl font-bold text-[#4A3F35]">Focus Session Setup</h3>
               <p className="text-sm font-medium text-[#8C7A6B] mt-0.5">Filter and select the task you want to log time against.</p>
             </div>
-            <div className="p-3 bg-gradient-to-br from-[#FAF8F5] to-[#F4EFE6] rounded-[1rem] text-[#E89D71] shadow-inner shrink-0">
-              <LaptopMinimalCheck size={24} strokeWidth={2.5} />
+            <div className="p-3 bg-gradient-to-br from-[#FAF8F5] to-[#F4EFE6] rounded-[1rem] text-[#E89D71] shadow-inner shrink-0 cursor-pointer hover:bg-[#F4EFE6] transition-all group"
+              onClick={() => setIsAddTaskModalOpen(true)}
+              title="Add New Task"
+            >
+              <Plus size={24} strokeWidth={2.5} className="group-hover:scale-110 transition-transform" />
             </div>
           </div>
         </div>
@@ -506,6 +515,10 @@ export default function TimerView() {
           </div>
         </div>
       </div>
+      <AddTaskModal
+        isOpen={isAddTaskModalOpen}
+        onClose={() => setIsAddTaskModalOpen(false)}
+      />
     </main>
   );
 }

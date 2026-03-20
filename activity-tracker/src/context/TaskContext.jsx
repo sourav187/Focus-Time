@@ -158,7 +158,12 @@ export const TaskProvider = ({ children, user }) => {
 
     const fetchTasks = async () => {
       if (!user) {
-        setTasks([]);
+        const savedTasks = localStorage.getItem('focus_tasks_guest');
+        if (savedTasks) {
+          setTasks(JSON.parse(savedTasks));
+        } else {
+          setTasks([]);
+        }
         return;
       }
 
@@ -176,7 +181,12 @@ export const TaskProvider = ({ children, user }) => {
           date: t.task_date,
           needed: Number(t.needed),
           logged: Number(t.logged),
-          priority: t.priority
+          priority: t.priority,
+          category: t.category,
+          isMultiDay: !!t.is_multi_day,
+          startDate: t.start_date,
+          endDate: t.end_date,
+          groupId: t.group_id
         }));
         setTasks(mappedTasks);
       }
@@ -237,19 +247,43 @@ export const TaskProvider = ({ children, user }) => {
   }, [todayFocus, todaySessions, dailyGoalMinutes, isGoalSet, timerSettings, user, todayStr, isLoading]);
 
   const addTask = async (taskOrTasks) => {
-    if (!user) return alert("Please login to save tasks.");
-
     const tasksArray = Array.isArray(taskOrTasks) ? taskOrTasks : [taskOrTasks];
     
     const dbTasks = tasksArray.map(t => ({
-      user_id: user.id,
+      user_id: user?.id || 'guest',
       title: t.title,
       task_date: t.date,
       needed: Number(t.needed) / 60, // UI sends minutes, DB stores hours
       logged: 0,
       priority: t.priority || 'Medium',
-      category: t.category || 'Personal'
+      category: t.category || 'Personal',
+      is_multi_day: t.is_multi_day || false,
+      start_date: t.start_date || t.date,
+      end_date: t.end_date || t.date,
+      group_id: t.group_id || null
     }));
+
+    if (!user) {
+      // GUEST MODE: Save to state and localStorage
+      const guestTasks = dbTasks.map((t, idx) => ({
+        id: `guest-${Date.now()}-${idx}`,
+        title: t.title,
+        date: t.task_date,
+        needed: t.needed,
+        logged: 0,
+        priority: t.priority,
+        category: t.category,
+        isMultiDay: t.is_multi_day,
+        startDate: t.start_date,
+        endDate: t.end_date,
+        groupId: t.group_id
+      }));
+      
+      const newTasks = [...guestTasks, ...tasks];
+      setTasks(newTasks);
+      localStorage.setItem('focus_tasks_guest', JSON.stringify(newTasks));
+      return;
+    }
 
     const { data, error } = await supabase.from('tasks').insert(dbTasks).select();
 
@@ -263,9 +297,50 @@ export const TaskProvider = ({ children, user }) => {
         needed: Number(t.needed),
         logged: Number(t.logged),
         priority: t.priority,
-        category: t.category
+        category: t.category,
+        isMultiDay: !!t.is_multi_day,
+        startDate: t.start_date,
+        endDate: t.end_date,
+        groupId: t.group_id
       }));
       setTasks(prev => [...mapped, ...prev]);
+    }
+  };
+
+  const updateTask = async (taskId, updates) => {
+    try {
+      if (user) {
+        // Convert camelCase to snake_case for Supabase if needed
+        const dbUpdates = { ...updates };
+        if (updates.date) {
+           dbUpdates.task_date = updates.date;
+           delete dbUpdates.date;
+        }
+
+        const { error } = await supabase
+          .from('tasks')
+          .update(dbUpdates)
+          .eq('id', taskId);
+
+        if (error) throw error;
+      } else {
+        // Guest mode
+        const savedTasks = localStorage.getItem('focus_tasks_guest');
+        if (savedTasks) {
+          const currentTasks = JSON.parse(savedTasks);
+          const updatedTasks = currentTasks.map(t => 
+            t.id === taskId ? { ...t, ...updates } : t
+          );
+          localStorage.setItem('focus_tasks_guest', JSON.stringify(updatedTasks));
+        }
+      }
+
+      // Update local state instantly
+      setTasks(prev => prev.map(t => 
+        t.id === taskId ? { ...t, ...updates } : t
+      ));
+    } catch (error) {
+      console.error('Error updating task:', error.message);
     }
   };
 
@@ -278,9 +353,15 @@ export const TaskProvider = ({ children, user }) => {
     const newLogged = isCompleted ? 0 : task.needed;
 
     // Optimistic local update
-    setTasks(prev => prev.map(t =>
+    const updatedTasks = tasks.map(t =>
       t.id === taskId ? { ...t, logged: newLogged } : t
-    ));
+    );
+    setTasks(updatedTasks);
+
+    if (!user) {
+      localStorage.setItem('focus_tasks_guest', JSON.stringify(updatedTasks));
+      return;
+    }
 
     // DB update
     const { error } = await supabase
@@ -309,9 +390,15 @@ export const TaskProvider = ({ children, user }) => {
     const newLogged = Number((task.logged + hours).toFixed(4));
 
     // Update local task state
-    setTasks(prev => prev.map(t =>
+    const updatedTasks = tasks.map(t =>
       t.id === taskId ? { ...t, logged: newLogged } : t
-    ));
+    );
+    setTasks(updatedTasks);
+
+    if (!user) {
+      localStorage.setItem('focus_tasks_guest', JSON.stringify(updatedTasks));
+      return;
+    }
 
     // Sync with DB
     const { error } = await supabase
@@ -322,6 +409,29 @@ export const TaskProvider = ({ children, user }) => {
     if (error) console.error("Error syncing task time:", error.message);
   };
 
+  const deleteTask = async (taskId) => {
+    try {
+      if (user) {
+        const { error } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('id', taskId);
+        if (error) throw error;
+      } else {
+        // Guest mode
+        const savedTasks = localStorage.getItem('focus_tasks_guest');
+        if (savedTasks) {
+          const currentTasks = JSON.parse(savedTasks);
+          const updatedTasks = currentTasks.filter(t => t.id !== taskId);
+          localStorage.setItem('focus_tasks_guest', JSON.stringify(updatedTasks));
+        }
+      }
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+    } catch (error) {
+      console.error('Error deleting task:', error.message);
+    }
+  };
+
   const incrementSessions = () => {
     setTodaySessions(prev => prev + 1);
   };
@@ -330,8 +440,9 @@ export const TaskProvider = ({ children, user }) => {
     <TaskContext.Provider value={{
       tasks,
       addTask,
+      updateTask,
       toggleTaskStatus,
-      logFocusToTask,
+      deleteTask,
       addFocusTime,
       todayStr,
       isLoading,

@@ -1,64 +1,74 @@
-import React, { useState, useMemo } from 'react';
-import { X, Calendar, Clock, ChevronRight, Briefcase, User, Flag, Plus } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { X, Calendar, Clock, ChevronRight, Briefcase, User, Flag, Plus, Check } from 'lucide-react';
 import { useTasks } from '../context/TaskContext';
 
-export default function AddTaskModal({ isOpen, onClose }) {
-  const { addTask } = useTasks();
+export default function AddTaskModal({ isOpen, onClose, editingTask = null }) {
+  const { addTask, updateTask, todayStr } = useTasks();
 
   const [taskName, setTaskName] = useState('');
-  const [taskType, setTaskType] = useState('one-time'); // 'one-time' | 'multi-day'
+  const [taskType, setTaskType] = useState('one-time');
   const [category, setCategory] = useState('Personal');
   const [priority, setPriority] = useState('Medium');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [timeNeeded, setTimeNeeded] = useState(120); // in minutes
+  const [date, setDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(todayStr);
+  const [timeNeeded, setTimeNeeded] = useState(60); // in minutes
+
+  // Populate form if editing, or reset for new task
+  useEffect(() => {
+    if (editingTask && isOpen) {
+      setTaskName(editingTask.title);
+      setTaskType(editingTask.is_multi_day ? 'multi-day' : 'one-time');
+      setDate(editingTask.date);
+      setEndDate(editingTask.end_date || editingTask.date);
+      setTimeNeeded(editingTask.needed * 60); // Convert hours to minutes for UI
+      setPriority(editingTask.priority || 'Medium');
+      setCategory(editingTask.category || 'Personal');
+    } else if (isOpen) {
+      setTaskName('');
+      setTaskType('one-time');
+      setDate(todayStr);
+      setEndDate(todayStr);
+      setTimeNeeded(60);
+      setPriority('Medium');
+      setCategory('Personal');
+    }
+  }, [editingTask, isOpen, todayStr]);
 
   const plannedDuration = useMemo(() => {
     if (taskType !== 'multi-day') return 1;
-    const start = new Date(startDate);
+    const start = new Date(date);
     const end = new Date(endDate);
     const diffTime = Math.abs(end - start);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-  }, [startDate, endDate, taskType]);
+  }, [date, endDate, taskType]);
 
   const totalPlannedHours = useMemo(() => {
-    if (taskType === 'one-time') return (timeNeeded / 60).toFixed(1);
-    return ((timeNeeded * plannedDuration) / 60).toFixed(1);
+    const hours = (timeNeeded / 60);
+    if (taskType === 'one-time') return hours.toFixed(1);
+    return (hours * plannedDuration).toFixed(1);
   }, [taskType, timeNeeded, plannedDuration]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!taskName.trim()) return;
 
-    if (taskType === 'one-time') {
-      await addTask({
-        title: taskName,
-        date: date,
-        needed: timeNeeded,
-        priority,
-        category
-      });
-    } else {
-      // Multi-day: Create multiple tasks
-      const tasks = [];
-      const start = new Date(startDate);
-      for (let i = 0; i < plannedDuration; i++) {
-        const d = new Date(start);
-        d.setDate(start.getDate() + i);
-        tasks.push({
-          title: taskName,
-          date: d.toISOString().split('T')[0],
-          needed: timeNeeded,
-          priority,
-          category
-        });
-      }
-      await addTask(tasks);
-    }
+    const taskData = {
+      title: taskName,
+      date: date,
+      needed: timeNeeded / 60, // Store as hours
+      priority,
+      category,
+      is_multi_day: taskType === 'multi-day',
+      start_date: date,
+      end_date: taskType === 'multi-day' ? endDate : date
+    };
 
-    // Reset and Close
-    setTaskName('');
+    if (editingTask) {
+      await updateTask(editingTask.id, taskData);
+    } else {
+      await addTask(taskData);
+    }
+    
     onClose();
   };
 
@@ -73,8 +83,10 @@ export default function AddTaskModal({ isOpen, onClose }) {
         {/* Header */}
         <div className="px-8 py-6 border-b border-[#F4EFE6] flex justify-between items-center bg-gradient-to-r from-white to-[#FAF8F5]">
           <div>
-            <h2 className="text-2xl font-bold text-[#4A3F35]">Create New Task</h2>
-            <p className="text-sm font-medium text-[#8C7A6B]">Plan your focus sessions effectively.</p>
+            <h2 className="text-2xl font-bold text-[#4A3F35]">{editingTask ? 'Edit Task' : 'Create New Task'}</h2>
+            <p className="text-sm font-medium text-[#8C7A6B]">
+              {editingTask ? 'Modify your focus session details.' : 'Plan your focus sessions effectively.'}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -85,7 +97,6 @@ export default function AddTaskModal({ isOpen, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-3 overflow-y-auto max-h-[85vh]">
-          {/* Task Name */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-widest text-[#8C7A6B] ml-1">Task Name</label>
             <input
@@ -99,7 +110,6 @@ export default function AddTaskModal({ isOpen, onClose }) {
             />
           </div>
 
-          {/* Task Type Toggle */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-widest text-[#8C7A6B] ml-1">Task Type</label>
             <div className="flex p-1 bg-[#FAF8F5] rounded-2xl border border-[#F4EFE6]">
@@ -122,7 +132,6 @@ export default function AddTaskModal({ isOpen, onClose }) {
             </div>
           </div>
 
-          {/* Category & Priority Row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase tracking-widest text-[#8C7A6B] ml-1">Category</label>
@@ -148,35 +157,21 @@ export default function AddTaskModal({ isOpen, onClose }) {
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase tracking-widest text-[#8C7A6B] ml-1">Priority</label>
               <div className="flex p-1 bg-[#FAF8F5] rounded-xl border border-[#F4EFE6]">
-                <button
-                  type="button"
-                  onClick={() => setPriority('Low')}
-                  className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${priority === 'Low' ? 'bg-white text-[#4A3F35] shadow-sm' : 'text-[#8C7A6B]'}`}
-                >
-                  <Flag size={12} className={priority === 'Low' ? 'text-blue-400' : ''} />
-                  Low
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPriority('Medium')}
-                  className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${priority === 'Medium' ? 'bg-white text-[#4A3F35] shadow-sm' : 'text-[#8C7A6B]'}`}
-                >
-                  <Flag size={12} className={priority === 'Medium' ? 'text-yellow-400' : ''} />
-                  Mid
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPriority('High')}
-                  className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${priority === 'High' ? 'bg-white text-[#4A3F35] shadow-sm' : 'text-[#8C7A6B]'}`}
-                >
-                  <Flag size={12} className={priority === 'High' ? 'text-red-400' : ''} />
-                  High
-                </button>
+                {(['Low', 'Medium', 'High']).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPriority(p)}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${priority === p ? 'bg-white text-[#4A3F35] shadow-sm' : 'text-[#8C7A6B]'}`}
+                  >
+                    <Flag size={12} className={priority === p ? (p === 'High' ? 'text-red-400' : p === 'Medium' ? 'text-yellow-400' : 'text-blue-400') : ''} />
+                    {p.slice(0, 3)}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Conditional Date Fields */}
           <div className="bg-[#FAF8F5]/50 pt-2 px-4 pb-4 rounded-2xl border border-[#F4EFE6] space-y-4">
             {taskType === 'one-time' ? (
               <div className="grid grid-cols-2 gap-4">
@@ -193,7 +188,7 @@ export default function AddTaskModal({ isOpen, onClose }) {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold uppercase tracking-widest text-[#8C7A6B]">Min</label>
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-[#8C7A6B]">Duration (min)</label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#E89D71]" size={14} />
                     <input
@@ -209,16 +204,16 @@ export default function AddTaskModal({ isOpen, onClose }) {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-[#8C7A6B]">Start</label>
+                    <label className="text-[9px] font-bold uppercase tracking-widest text-[#8C7A6B]">Start Date</label>
                     <input
                       type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg bg-white border border-[#F4EFE6] text-xs font-bold text-[#4A3F35] outline-none shadow-sm"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-[#8C7A6B]">End</label>
+                    <label className="text-[9px] font-bold uppercase tracking-widest text-[#8C7A6B]">End Date</label>
                     <input
                       type="date"
                       value={endDate}
@@ -228,30 +223,23 @@ export default function AddTaskModal({ isOpen, onClose }) {
                   </div>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-[#F4EFE6] shadow-sm">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-[#8C7A6B]">Daily Focus Time</label>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="number"
-                        value={timeNeeded}
-                        onChange={(e) => setTimeNeeded(parseInt(e.target.value) || 0)}
-                        className="w-14 bg-transparent border-b-2 border-[#E89D71] text-sm font-bold text-[#4A3F35] outline-none text-center"
-                      />
-                      <span className="text-[10px] font-bold text-[#8C7A6B]">min / day</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[8px] font-bold uppercase tracking-wider text-[#B4A594]">Summary</p>
-                    <p className="text-[11px] font-bold text-[#4A3F35] mt-0.5">
-                      {plannedDuration}d • <span className="text-[#E89D71]">{totalPlannedHours}h total</span>
-                    </p>
+                  <p className="text-[11px] font-bold text-[#4A3F35]">
+                    {plannedDuration}d • <span className="text-[#E89D71]">{totalPlannedHours}h total</span>
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={timeNeeded}
+                      onChange={(e) => setTimeNeeded(parseInt(e.target.value) || 0)}
+                      className="w-12 bg-transparent border-b-2 border-[#E89D71] text-xs font-bold text-center"
+                    />
+                    <span className="text-[8px] font-bold text-[#8C7A6B]">min/day</span>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Action Buttons */}
           <div className="flex items-center gap-3 pt-2">
             <button
               type="button"
@@ -264,8 +252,8 @@ export default function AddTaskModal({ isOpen, onClose }) {
               type="submit"
               className="flex-[2] py-3 px-4 rounded-xl bg-[#E89D71] text-white font-bold shadow-lg shadow-[#E89D71]/10 hover:bg-[#d68b60] hover:shadow-xl transition-all flex items-center justify-center gap-2 text-sm"
             >
-              <Plus size={18} />
-              Create Task
+              {editingTask ? <Check size={18} /> : <Plus size={18} />}
+              {editingTask ? 'Update Task' : 'Create Task'}
             </button>
           </div>
         </form>

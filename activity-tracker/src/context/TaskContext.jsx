@@ -345,7 +345,6 @@ export const TaskProvider = ({ children, user }) => {
   };
 
   const toggleTaskStatus = async (taskId) => {
-    if (!user) return;
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
@@ -359,11 +358,12 @@ export const TaskProvider = ({ children, user }) => {
     setTasks(updatedTasks);
 
     if (!user) {
+      // Guest mode — persist to localStorage
       localStorage.setItem('focus_tasks_guest', JSON.stringify(updatedTasks));
       return;
     }
 
-    // DB update
+    // Logged-in — sync to Supabase
     const { error } = await supabase
       .from('tasks')
       .update({ logged: newLogged })

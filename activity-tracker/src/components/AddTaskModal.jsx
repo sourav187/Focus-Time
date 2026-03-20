@@ -52,21 +52,52 @@ export default function AddTaskModal({ isOpen, onClose, editingTask = null }) {
     e.preventDefault();
     if (!taskName.trim()) return;
 
-    const taskData = {
-      title: taskName,
-      date: date,
-      needed: timeNeeded / 60, // Store as hours
-      priority,
-      category,
-      is_multi_day: taskType === 'multi-day',
-      start_date: date,
-      end_date: taskType === 'multi-day' ? endDate : date
-    };
-
     if (editingTask) {
+      const taskData = {
+        title: taskName,
+        date: date,
+        needed: timeNeeded / 60,
+        priority,
+        category,
+        is_multi_day: taskType === 'multi-day',
+        start_date: date,
+        end_date: taskType === 'multi-day' ? endDate : date
+      };
       await updateTask(editingTask.id, taskData);
     } else {
-      await addTask(taskData);
+      if (taskType === 'multi-day') {
+        const tasksToCreate = [];
+        const start = new Date(date + 'T12:00:00');
+        const end = new Date(endDate + 'T12:00:00');
+        const groupId = `group-${Date.now()}`;
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const currentDayStr = d.toISOString().split('T')[0];
+          tasksToCreate.push({
+            title: taskName,
+            date: currentDayStr,
+            needed: timeNeeded, // Passing minutes; Context will divide by 60
+            priority,
+            category,
+            is_multi_day: true,
+            start_date: date,
+            end_date: endDate,
+            group_id: groupId
+          });
+        }
+        await addTask(tasksToCreate);
+      } else {
+        await addTask({
+          title: taskName,
+          date: date,
+          needed: timeNeeded, // Passing minutes; Context will divide by 60
+          priority,
+          category,
+          is_multi_day: false,
+          start_date: date,
+          end_date: date
+        });
+      }
     }
     
     onClose();

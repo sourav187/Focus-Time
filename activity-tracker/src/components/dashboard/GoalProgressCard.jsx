@@ -25,16 +25,16 @@ export default function GoalProgressCard({
   }
 
   return (
-    <div className="w-full max-w-md bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#F4EFE6] transition-all duration-300 min-h-[160px] flex flex-col justify-center">
+    <div className="w-full max-w-md bg-[var(--app-card)] p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[var(--app-border)] transition-all duration-300 min-h-[160px] flex flex-col justify-center">
       {isLoading ? (
         <div className="flex justify-center p-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E89D71]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--app-accent)]"></div>
         </div>
       ) : (
         <>
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-[#8C7A6B] font-bold text-sm uppercase tracking-wider">Today's Goal 🎯</h3>
+              <h3 className="text-[var(--app-text-muted)] font-bold text-sm uppercase tracking-wider">Today's Goal 🎯</h3>
             </div>
             <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-white shadow-sm transition-colors duration-300 ${statusColor}`}>
               <StatusIcon size={12} strokeWidth={3} />
@@ -46,20 +46,20 @@ export default function GoalProgressCard({
             <div className="flex items-center gap-2">
               {isGoalSet ? (
                 <div className="flex items-center gap-3">
-                  <h2 className="text-3xl font-bold text-[#4A3F35] tracking-tight">
-                    <span className="text-[#E89D71]">{totalFocusMinutes}</span>
-                    <span className="text-[#8C7A6B] mx-2 text-2xl">/</span>
+                  <h2 className="text-3xl font-bold text-[var(--app-text)] tracking-tight">
+                    <span className="text-[var(--app-accent)]">{totalFocusMinutes}</span>
+                    <span className="text-[var(--app-text-muted)] mx-2 text-2xl">/</span>
                     <span>{dailyGoalMinutes}</span>
-                    <span className="text-sm font-medium text-[#8C7A6B] ml-2">min</span>
+                    <span className="text-sm font-medium text-[var(--app-text-muted)] ml-2">min</span>
                   </h2>
-                  <div className="text-[#8C7A6B] opacity-40" title="Goal locked for today">
+                  <div className="text-[var(--app-text-muted)] opacity-40" title="Goal locked for today">
                     <Lock size={18} />
                   </div>
                 </div>
               ) : (
                 <button
                   onClick={onAddGoal}
-                  className="bg-[#FAF8F5] hover:bg-[#F4EFE6] text-[#E89D71] font-bold py-2.5 px-6 rounded-2xl transition-all flex items-center gap-2 border-2 border-dashed border-[#E89D71] border-opacity-30"
+                  className="bg-[var(--app-bg)] hover:bg-[var(--app-border)] text-[var(--app-accent)] font-bold py-2.5 px-6 rounded-2xl transition-all flex items-center gap-2 border-2 border-dashed border-[var(--app-accent)] border-opacity-30"
                 >
                   <Clock size={18} />
                   <span>Add Daily Goal</span>
@@ -67,16 +67,16 @@ export default function GoalProgressCard({
               )}
             </div>
             <div className="text-right">
-              <span className="text-sm font-bold text-[#E89D71] opacity-70">{progressPercentage}%</span>
+              <span className="text-sm font-bold text-[var(--app-accent)] opacity-70">{progressPercentage}%</span>
             </div>
           </div>
 
-          <div className={`relative w-full h-4 bg-[#F4EFE6] rounded-full overflow-hidden transition-all duration-500 ${totalFocusMinutes >= dailyGoalMinutes && isGoalSet ? 'ring-2 ring-green-500' : ''}`}>
+          <div className={`relative w-full h-4 bg-[var(--app-border)] rounded-full overflow-hidden transition-all duration-500 ${totalFocusMinutes >= dailyGoalMinutes && isGoalSet ? 'ring-2 ring-green-500' : ''}`}>
             <div
               className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out 
                 ${totalFocusMinutes >= dailyGoalMinutes && isGoalSet
                   ? 'bg-gradient-to-r from-green-500 to-[#10B981] shadow-[0_0_15px_rgba(34,197,94,0.4)]'
-                  : 'bg-gradient-to-r from-[#E89D71] to-[#f4a261]'}`}
+                  : 'bg-gradient-to-r from-[var(--app-accent)] to-[#f4a261]'}`}
               style={{ width: `${progressPercentage}%` }}
             ></div>
           </div>

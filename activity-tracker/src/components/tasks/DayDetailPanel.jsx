@@ -16,7 +16,7 @@ export default function DayDetailPanel({
 
   return (
     <div className="w-full lg:w-96 flex flex-col gap-4 animate-in slide-in-from-right fade-in duration-500">
-      <div className="bg-slate-700 rounded-[2rem] p-5 flex items-center justify-between shadow-lg">
+      <div className="bg-slate-700 dark:bg-slate-900 rounded-[2rem] p-5 flex items-center justify-between shadow-lg">
         <div>
           <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest">
             {formattedSelected.toLocaleDateString(undefined, { weekday: 'long' })}
@@ -39,11 +39,11 @@ export default function DayDetailPanel({
             <TaskCard key={t.id} task={t} onEdit={onEdit} />
           ))
         ) : (
-          <div className="flex flex-col items-center justify-center py-14 text-center bg-white rounded-[2rem] border border-gray-100 shadow-sm">
-            <div className="w-14 h-14 bg-gradient-to-br from-indigo-100 to-violet-100 rounded-2xl flex items-center justify-center mb-4">
-              <ListTodo size={28} className="text-indigo-400" />
+          <div className="flex flex-col items-center justify-center py-14 text-center bg-[var(--app-card)] rounded-[2rem] border border-[var(--app-border)] shadow-sm">
+            <div className="w-14 h-14 bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-900/30 dark:to-violet-900/30 rounded-2xl flex items-center justify-center mb-4">
+              <ListTodo size={28} className="text-indigo-400 dark:text-indigo-300" />
             </div>
-            <p className="text-sm font-semibold text-gray-500">No tasks this day</p>
+            <p className="text-sm font-semibold text-[var(--app-text-muted)]">No tasks this day</p>
             <button
               onClick={onAddTask}
               className="mt-4 px-4 py-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-xs font-bold rounded-full shadow-md hover:shadow-lg transition-all"

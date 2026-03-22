@@ -180,7 +180,7 @@ export default function DashboardView() {
   };
 
   return (
-    <main className="max-w-5xl mx-auto px-8 py-8 flex flex-col items-center gap-12 w-full animate-in fade-in zoom-in-95 duration-500">
+    <main className="max-w-5xl mx-auto px-4 sm:px-8 py-8 flex flex-col items-center gap-12 w-full animate-in fade-in zoom-in-95 duration-500">
 
       <GoalProgressCard
         isLoading={isLoading}

@@ -11,10 +11,10 @@ const TooltipPortal = ({ x, y, content, visible }) => {
       className="fixed z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-[calc(100%+12px)] transition-all duration-200 animate-in fade-in zoom-in-95 origin-bottom"
       style={{ left: `${x}px`, top: `${y}px` }}
     >
-      <div className="bg-[#1E293B] text-white px-3 py-2 rounded-xl text-[11px] shadow-[0_10px_40px_rgba(0,0,0,0.3)] border border-white/10 whitespace-nowrap">
+      <div className="bg-[#1E293B] dark:bg-slate-900 text-white px-3 py-2 rounded-xl text-[11px] shadow-[0_10px_40px_rgba(0,0,0,0.3)] border border-white/10 whitespace-nowrap">
         {content}
         {/* The Arrow */}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-[#1E293B]" />
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-[#1E293B] dark:border-t-slate-900" />
       </div>
     </div>,
     document.body
@@ -97,13 +97,13 @@ export default function FocusActivityHeatmap() {
 
   const getColor = (level) => {
     switch (level) {
-      case -1: return 'bg-[#ebedf0] opacity-30 border-transparent cursor-default';
-      case 0: return 'bg-[#ebedf0] border-transparent transition-colors';
-      case 1: return 'bg-[#9be9a8] border-black/5 hover:border-[#86d494]';
-      case 2: return 'bg-[#40c463] border-black/5 hover:border-[#34ab54]';
-      case 3: return 'bg-[#30a14e] border-black/5 hover:border-[#278641]';
-      case 4: return 'bg-[#216e39] border-black/5 hover:border-[#1a572c]';
-      default: return 'bg-[#ebedf0]';
+      case -1: return 'bg-slate-100 dark:bg-slate-800/30 opacity-30 border-transparent cursor-default';
+      case 0: return 'bg-[var(--app-heatmap-L0)] border-transparent transition-colors';
+      case 1: return 'bg-[var(--app-heatmap-L1)] border-black/5 dark:border-white/5 hover:border-[var(--app-heatmap-L2)]';
+      case 2: return 'bg-[var(--app-heatmap-L2)] border-black/5 dark:border-white/5 hover:border-[var(--app-heatmap-L3)]';
+      case 3: return 'bg-[var(--app-heatmap-L3)] border-black/5 dark:border-white/5 hover:border-[var(--app-heatmap-L4)]';
+      case 4: return 'bg-[var(--app-heatmap-L4)] border-black/5 dark:border-white/5 opacity-90 hover:opacity-100';
+      default: return 'bg-[var(--app-heatmap-L0)]';
     }
   };
 
@@ -145,16 +145,16 @@ export default function FocusActivityHeatmap() {
   const { totalFocusTime, currentStreak: contextStreak } = useTasks();
 
   return (
-    <div className="bg-white p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#F4EFE6]">
+    <div className="bg-[var(--app-card)] p-8 rounded-[2rem] shadow-lg border border-[var(--app-border)]">
       {/* 1. Portal Tooltip (always outside scroller) */}
       <TooltipPortal {...tooltip} />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h3 className="text-xl font-bold text-[#4A3F35]">Focus Activity</h3>
-          <p className="text-sm text-[#8C7A6B] font-medium mt-1">Consistency over the last year</p>
+          <h3 className="text-xl font-bold text-[var(--app-text)]">Focus Activity</h3>
+          <p className="text-sm text-[var(--app-text-muted)] font-medium mt-1">Consistency over the last year</p>
         </div>
-        <div className="flex items-center gap-2 text-[10px] font-bold text-[#8C7A6B] uppercase tracking-wider">
+        <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-wider">
           <span>Less</span>
           <div className="flex gap-1.5 items-center">
             {[0, 1, 2, 3, 4].map(l => (
@@ -183,7 +183,7 @@ export default function FocusActivityHeatmap() {
               return (
                 <span
                   key={i}
-                  className="text-[10px] font-bold text-[#8C7A6B]/60 uppercase whitespace-nowrap"
+                  className="text-[10px] font-bold text-[var(--app-text-muted)] opacity-60 uppercase whitespace-nowrap"
                   style={{ gridColumnStart: m.index + 1 }}
                 >
                   {m.label}
@@ -196,7 +196,7 @@ export default function FocusActivityHeatmap() {
             {/* Day Labels Column */}
             <div className="flex flex-col gap-[5px] mr-2 mt-0.5 w-[31px] shrink-0">
               {['Sun', '', 'Tue', '', 'Thu', '', 'Sat'].map((day, di) => (
-                <span key={di} className="text-[9px] font-bold text-[#8C7A6B]/50 h-[11px] flex items-center leading-none tracking-tighter uppercase whitespace-nowrap">{day}</span>
+                <span key={di} className="text-[9px] font-bold text-[var(--app-text-muted)] opacity-50 h-[11px] flex items-center leading-none tracking-tighter uppercase whitespace-nowrap">{day}</span>
               ))}
             </div>
 
@@ -220,15 +220,15 @@ export default function FocusActivityHeatmap() {
         </div>
       </div>
 
-      <div className="mt-8 flex justify-between items-center text-[11px] text-[#8C7A6B] font-medium border-t border-[#F4EFE6] pt-5">
+      <div className="mt-8 flex justify-between items-center text-[11px] text-[var(--app-text-muted)] font-medium border-t border-[var(--app-border)] pt-5">
         <div className="flex gap-6">
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-            Total Focused: <span className="font-bold text-[#4A3F35] tracking-tight">{totalFocusTime.toFixed(1)}h</span>
+            Total Focused: <span className="font-bold text-[var(--app-text)] tracking-tight">{totalFocusTime.toFixed(1)}h</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#30a14e]" />
-            Current Streak: <span className="font-bold text-[#4A3F35] tracking-tight">{contextStreak} days</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#30a14e] dark:bg-[#39d353]" />
+            Current Streak: <span className="font-bold text-[var(--app-text)] tracking-tight">{contextStreak} days</span>
           </div>
         </div>
       </div>

@@ -82,25 +82,25 @@ export default function TasksView() {
   };
 
   return (
-    <main className="max-w-5xl mx-auto px-8 py-8 flex flex-col gap-10 w-full animate-in fade-in zoom-in-95 duration-500">
+    <main className="max-w-5xl mx-auto px-4 sm:px-8 py-8 flex flex-col gap-10 w-full animate-in fade-in zoom-in-95 duration-500">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h2 className="text-2xl font-semibold mb-1">Upcoming Tasks</h2>
-          <p className="text-[#8C7A6B] font-medium">Plan your focus blocks and track remaining time.</p>
+          <h2 className="text-2xl font-semibold mb-1 text-[var(--app-text)]">Upcoming Tasks</h2>
+          <p className="text-[var(--app-text-muted)] font-medium">Plan your focus blocks and track remaining time.</p>
         </div>
         <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="flex bg-[#F4EFE6] p-1 rounded-full border border-[#e4dfd8] overflow-hidden">
+          <div className="flex bg-[var(--app-border)] p-1 rounded-full border border-[var(--app-border)] overflow-hidden">
             <button 
               onClick={() => setView('list')}
-              className={`flex items-center px-4 py-1.5 rounded-full text-sm font-medium transition-all ${view === 'list' ? 'bg-white shadow-sm text-[#E89D71]' : 'text-[#8C7A6B] hover:text-[#4A3F35]'}`}
+              className={`flex items-center px-4 py-1.5 rounded-full text-sm font-medium transition-all ${view === 'list' ? 'bg-[var(--app-card)] shadow-sm text-[var(--app-accent)]' : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'}`}
             >
               <ListTodo size={16} className="mr-2"/> List
             </button>
             <button 
               onClick={() => setView('calendar')}
-              className={`flex items-center px-4 py-1.5 rounded-full text-sm font-medium transition-all ${view === 'calendar' ? 'bg-white shadow-sm text-[#E89D71]' : 'text-[#8C7A6B] hover:text-[#4A3F35]'}`}
+              className={`flex items-center px-4 py-1.5 rounded-full text-sm font-medium transition-all ${view === 'calendar' ? 'bg-[var(--app-card)] shadow-sm text-[var(--app-accent)]' : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'}`}
             >
               <CalendarIcon size={16} className="mr-2"/> Calendar
             </button>
@@ -108,7 +108,7 @@ export default function TasksView() {
           
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center shrink-0 gap-2 bg-[#E89D71] text-white px-5 py-2.5 rounded-full font-medium hover:bg-[#d68b60] transition-colors shadow-sm active:scale-95"
+            className="flex items-center shrink-0 gap-2 bg-[var(--app-accent)] text-white px-5 py-2.5 rounded-full font-medium hover:bg-[#d68b60] transition-colors shadow-sm active:scale-95"
           >
             <Plus size={18} strokeWidth={2.5} /> Add Task
           </button>

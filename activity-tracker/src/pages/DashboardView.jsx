@@ -31,24 +31,26 @@ export default function DashboardView() {
     timerMode,
     setTimerMode,
     completedSessions,
-    setCompletedSessions
+    setCompletedSessions,
+    // Global Timer State
+    timeLeft, setTimeLeft, isActive, setIsActive, 
+    sessionStartTime, setSessionStartTime, 
+    selectedTaskId, setSelectedTaskId,
+    syncTimerSettings
   } = useTasks();
 
   const [filterDate, setFilterDate] = useState(todayStr);
   const [filterPriority, setFilterPriority] = useState('All');
-  const [selectedTaskId, setSelectedTaskId] = useState('');
 
-  const [timeLeft, setTimeLeft] = useState(timerSettings.focusDuration * 60);
-  const [isActive, setIsActive] = useState(false);
-  const [sessionStartTime, setSessionStartTime] = useState(null);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Calculations & Progress
-  const totalFocusMinutes = Math.round(todayFocus * 60);
-  const progressRatio = dailyGoalMinutes > 0 ? Math.min(1, totalFocusMinutes / dailyGoalMinutes) : 0;
-  const progressPercentage = (progressRatio * 100).toFixed(0);
+  const totalFocusMinutes = isNaN(Number(todayFocus)) ? 0 : Math.round(todayFocus * 60);
+  const safeGoal = isNaN(Number(dailyGoalMinutes)) ? 0 : dailyGoalMinutes;
+  const progressRatio = safeGoal > 0 ? Math.min(1, totalFocusMinutes / safeGoal) : 0;
+  const progressPercentage = isNaN(Number(progressRatio)) ? 0 : (progressRatio * 100).toFixed(0);
 
   // Confetti Trigger (Once per day)
   useEffect(() => {
@@ -71,20 +73,10 @@ export default function DashboardView() {
 
   // Auto-clear selection if filter removes the selected task
   useEffect(() => {
-    if (selectedTaskId && !availableTasks.find(t => t.id === selectedTaskId)) {
+    if (selectedTaskId && !availableTasks.find(t => String(t.id) === String(selectedTaskId))) {
       setSelectedTaskId('');
     }
-  }, [availableTasks, selectedTaskId]);
-
-  // Update timeLeft when mode or settings change (if not active)
-  useEffect(() => {
-    if (!isActive) {
-      const duration = timerMode === 'focus'
-        ? timerSettings.focusDuration
-        : (timerMode === 'shortBreak' ? timerSettings.shortBreakDuration : timerSettings.longBreakDuration);
-      setTimeLeft(duration * 60);
-    }
-  }, [timerMode, timerSettings, isActive]);
+  }, [availableTasks, selectedTaskId, setSelectedTaskId]);
 
   const handleSessionComplete = () => {
     setIsActive(false);
@@ -128,8 +120,33 @@ export default function DashboardView() {
     } else if (timeLeft <= 0 && isActive) {
       handleSessionComplete();
     }
+    
     return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, setTimeLeft]);
+
+  // Track current state in a ref to use in the unmount cleanup without triggering re-runs
+  const unmountRef = React.useRef({ isActive, timerMode, sessionStartTime, selectedTaskId });
+  useEffect(() => {
+    unmountRef.current = { isActive, timerMode, sessionStartTime, selectedTaskId };
+  }, [isActive, timerMode, sessionStartTime, selectedTaskId]);
+
+  // AUTO-PAUSE LOGIC: Truly only on UNMOUNT
+  useEffect(() => {
+    return () => {
+      const { isActive: wasActive, timerMode: mode, sessionStartTime: start, selectedTaskId: taskId } = unmountRef.current;
+      if (wasActive) {
+        setIsActive(false);
+        if (mode === 'focus' && start) {
+          const elapsedHours = (Date.now() - start) / (1000 * 3600);
+          addFocusTime(elapsedHours);
+          if (taskId) {
+            logFocusToTask(taskId, elapsedHours);
+          }
+        }
+        setSessionStartTime(null);
+      }
+    };
+  }, []); // Empty dependency array ensures this cleanup ONLY runs on unmount
 
   const toggleTimer = () => {
     if (!isActive) {
@@ -137,6 +154,7 @@ export default function DashboardView() {
       setSessionStartTime(Date.now());
       setIsActive(true);
     } else {
+      // Pause manually
       setIsActive(false);
       if (timerMode === 'focus' && sessionStartTime) {
         const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 3600);
@@ -180,7 +198,7 @@ export default function DashboardView() {
   };
 
   return (
-    <main className="max-w-5xl mx-auto px-8 py-8 flex flex-col items-center gap-12 w-full animate-in fade-in zoom-in-95 duration-500">
+    <main className="max-w-5xl mx-auto px-4 sm:px-8 py-8 flex flex-col items-center gap-12 w-full animate-in fade-in zoom-in-95 duration-500">
 
       <GoalProgressCard
         isLoading={isLoading}
@@ -202,7 +220,10 @@ export default function DashboardView() {
         isGoalSet={isGoalSet}
         completedSessions={completedSessions}
         isSettingsOpen={isSettingsOpen}
-        setIsSettingsOpen={setIsSettingsOpen}
+        setIsSettingsOpen={(open) => {
+          if (!open) syncTimerSettings(timerSettings);
+          setIsSettingsOpen(open);
+        }}
         timerSettings={timerSettings}
         setTimerSettings={setTimerSettings}
       />

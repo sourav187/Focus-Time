@@ -1,9 +1,87 @@
 @import "tailwindcss";
 
+@theme {
+  /* System Tokens */
+  --color-app-bg: var(--app-bg);
+  --color-app-text: var(--app-text);
+  --color-app-text-muted: var(--app-text-muted);
+  --color-app-card: var(--app-card);
+  --color-app-border: var(--app-border);
+  --color-app-accent: var(--app-accent);
+
+  /* Force class-based dark mode in v4 */
+  --variant-dark: .dark &;
+}
+
+:root {
+  --app-bg: #FAF8F5;
+  --app-text: #4A3F35;
+  --app-text-muted: #8C7A6B;
+  --app-card: #FFFFFF;
+  --app-border: #F4EFE6;
+  --app-accent: #E89D71;
+  --app-accent-muted: rgba(232, 157, 113, 0.15);
+  --app-nav-bg: #FAF8F5;
+
+  /* Priority Tokens - Light */
+  --p-high-bg: #FEF2F2;
+  --p-high-text: #DC2626;
+  --p-high-border: #FCA5A5;
+  --p-medium-bg: #FFFBEB;
+  --p-medium-text: #D97706;
+  --p-medium-border: #FCD34D;
+  --p-low-bg: #F0FDFA;
+  --p-low-text: #0D9488;
+  --p-low-border: #5EEAD4;
+
+  /* Heatmap Levels - Light */
+  --app-heatmap-L0: #ebedf0;
+  --app-heatmap-L1: #9be9a8;
+  --app-heatmap-L2: #40c463;
+  --app-heatmap-L3: #30a14e;
+  --app-heatmap-L4: #216e39;
+}
+
+.dark {
+  --app-bg: #0D0C0B;
+  --app-text: #F4F0EB;
+  --app-text-muted: #A39386;
+  --app-card: #181614;
+  --app-border: #2D2A26;
+  --app-accent: #FF9B6D;
+  --app-accent-muted: rgba(255, 155, 109, 0.1);
+  --app-nav-bg: #151412;
+
+  /* Priority Tokens - Dark */
+  --p-high-bg: rgba(220, 38, 38, 0.15);
+  --p-high-text: #F87171;
+  --p-high-border: rgba(220, 38, 38, 0.3);
+  --p-medium-bg: rgba(217, 119, 6, 0.15);
+  --p-medium-text: #FBBF24;
+  --p-medium-border: rgba(217, 119, 6, 0.3);
+  --p-low-bg: rgba(13, 148, 136, 0.15);
+  --p-low-text: #2DD4BF;
+  --p-low-border: rgba(13, 148, 136, 0.3);
+
+  /* Heatmap Levels - Dark */
+  --app-heatmap-L0: #161b22;
+  --app-heatmap-L1: #0e4429;
+  --app-heatmap-L2: #006d32;
+  --app-heatmap-L3: #26a641;
+  --app-heatmap-L4: #39d353;
+}
+
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -11,8 +89,15 @@
 }
 
 @keyframes soft-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
 }
 
 .animate-soft-pulse {

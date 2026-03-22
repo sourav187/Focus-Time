@@ -48,17 +48,17 @@ export default function TasksListView({
         onDragOver={canDrop ? (e) => { e.preventDefault(); setDragOverCategory(categoryName); } : undefined}
         onDragLeave={canDrop ? (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverCategory(null); } : undefined}
         onDrop={canDrop ? (e) => handleDrop(e, categoryName) : undefined}
-        className={`rounded-2xl px-2 -mx-2 transition-all duration-200 ${isOver ? 'bg-indigo-50/80 ring-2 ring-indigo-300 ring-dashed py-2' : ''}`}
+        className={`rounded-2xl px-2 -mx-2 transition-all duration-200 ${isOver ? 'bg-indigo-50/80 dark:bg-indigo-900/20 ring-2 ring-indigo-300 dark:ring-indigo-700 ring-dashed py-2' : ''}`}
       >
         <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 
-          ${categoryName === 'Overdue' ? 'text-red-500' : 'text-[#4A3F35]'}`}>
+          ${categoryName === 'Overdue' ? 'text-red-500' : 'text-[var(--app-text)]'}`}>
           {categoryName === 'Overdue' && <AlertCircle size={18} />}
           {categoryName}
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full border 
-            ${categoryName === 'Today' || categoryName === 'Tomorrow' ? 'bg-[#FAF8F5] text-[#E89D71] border-[#F4EFE6]' : 'bg-[#FAF8F5] text-[#8C7A6B] border-[#F4EFE6]'}`}>
+            ${categoryName === 'Today' || categoryName === 'Tomorrow' ? 'bg-[var(--app-bg)] text-[var(--app-accent)] border-[var(--app-border)]' : 'bg-[var(--app-bg)] text-[var(--app-text-muted)] border-[var(--app-border)]'}`}>
             {list.length}
           </span>
-          {isOver && <span className="text-xs font-semibold text-indigo-500 animate-pulse ml-1">↓ Drop here</span>}
+          {isOver && <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-400 animate-pulse ml-1">↓ Drop here</span>}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {list.map(task => (
@@ -70,7 +70,7 @@ export default function TasksListView({
             />
           ))}
           {list.length === 0 && (categoryName === 'Today' || categoryName === 'Tomorrow') && (
-            <p className="text-sm text-gray-400 italic py-4">No tasks planned for {categoryName.toLowerCase()}.</p>
+            <p className="text-sm text-[var(--app-text-muted)] italic py-4">No tasks planned for {categoryName.toLowerCase()}.</p>
           )}
         </div>
       </section>

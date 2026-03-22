@@ -11,10 +11,10 @@ const TooltipPortal = ({ x, y, content, visible }) => {
       className="fixed z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-[calc(100%+12px)] transition-all duration-200 animate-in fade-in zoom-in-95 origin-bottom"
       style={{ left: `${x}px`, top: `${y}px` }}
     >
-      <div className="bg-[#1E293B] text-white px-3 py-2 rounded-xl text-[11px] shadow-[0_10px_40px_rgba(0,0,0,0.3)] border border-white/10 whitespace-nowrap">
+      <div className="bg-[#1E293B] dark:bg-slate-900 text-white px-3 py-2 rounded-xl text-[11px] shadow-[0_10px_40px_rgba(0,0,0,0.3)] border border-white/10 whitespace-nowrap">
         {content}
         {/* The Arrow */}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-[#1E293B]" />
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-[#1E293B] dark:border-t-slate-900" />
       </div>
     </div>,
     document.body
@@ -97,13 +97,13 @@ export default function FocusActivityHeatmap() {
 
   const getColor = (level) => {
     switch (level) {
-      case -1: return 'bg-[#ebedf0] opacity-30 border-transparent cursor-default';
-      case 0: return 'bg-[#ebedf0] border-transparent transition-colors';
-      case 1: return 'bg-[#9be9a8] border-black/5 hover:border-[#86d494]';
-      case 2: return 'bg-[#40c463] border-black/5 hover:border-[#34ab54]';
-      case 3: return 'bg-[#30a14e] border-black/5 hover:border-[#278641]';
-      case 4: return 'bg-[#216e39] border-black/5 hover:border-[#1a572c]';
-      default: return 'bg-[#ebedf0]';
+      case -1: return 'bg-slate-100 dark:bg-slate-800/30 opacity-30 border-transparent cursor-default';
+      case 0: return 'bg-[var(--app-heatmap-L0)] border-transparent transition-colors';
+      case 1: return 'bg-[var(--app-heatmap-L1)] border-black/5 dark:border-white/5 hover:border-[var(--app-heatmap-L2)]';
+      case 2: return 'bg-[var(--app-heatmap-L2)] border-black/5 dark:border-white/5 hover:border-[var(--app-heatmap-L3)]';
+      case 3: return 'bg-[var(--app-heatmap-L3)] border-black/5 dark:border-white/5 hover:border-[var(--app-heatmap-L4)]';
+      case 4: return 'bg-[var(--app-heatmap-L4)] border-black/5 dark:border-white/5 opacity-90 hover:opacity-100';
+      default: return 'bg-[var(--app-heatmap-L0)]';
     }
   };
 
@@ -142,19 +142,67 @@ export default function FocusActivityHeatmap() {
     return labels;
   }, [activityData]);
 
-  const { totalFocusTime, currentStreak: contextStreak } = useTasks();
+  const { totalFocusTime, todayFocus } = useTasks();
+
+  const periodStats = useMemo(() => {
+    const data = {};
+    dailyHistory.forEach(h => data[h.stats_date] = Number(h.total_focus_hours || 0));
+    // Merge today as well
+    data[todayStr] = todayFocus;
+
+    const now = new Date();
+    const todayObj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Week (starting Sunday)
+    const weekStart = new Date(todayObj);
+    weekStart.setDate(todayObj.getDate() - todayObj.getDay());
+
+    // Month
+    const monthStart = new Date(todayObj.getFullYear(), todayObj.getMonth(), 1);
+
+    // Year
+    const yearStart = new Date(todayObj.getFullYear(), 0, 1);
+
+    let week = 0, month = 0, year = 0;
+
+    Object.entries(data).forEach(([dateStr, hours]) => {
+      const d = new Date(dateStr);
+      if (d >= weekStart) week += hours;
+      if (d >= monthStart) month += hours;
+      if (d >= yearStart) year += hours;
+    });
+
+    // Most productive week calculation
+    let maxWeekTotal = 0;
+    let bestWeekRange = 'No data';
+    activityData.forEach(w => {
+      const weekDate = new Date(w[0].date);
+      if (weekDate.getFullYear() === now.getFullYear() || weekDate >= yearStart) {
+        const total = w.reduce((acc, d) => acc + (d.hours || 0), 0);
+        if (total > maxWeekTotal && total > 0) {
+          maxWeekTotal = total;
+          const start = new Date(w[0].date);
+          const end = new Date(w[6].date);
+          const options = { month: 'short', day: 'numeric' };
+          bestWeekRange = `${start.toLocaleDateString(undefined, options)} - ${end.toLocaleDateString(undefined, options)}`;
+        }
+      }
+    });
+
+    return { week, month, year, bestWeek: bestWeekRange };
+  }, [dailyHistory, todayFocus, todayStr, activityData]);
 
   return (
-    <div className="bg-white p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#F4EFE6]">
+    <div className="bg-[var(--app-card)] p-8 rounded-[2rem] shadow-lg border border-[var(--app-border)]">
       {/* 1. Portal Tooltip (always outside scroller) */}
       <TooltipPortal {...tooltip} />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h3 className="text-xl font-bold text-[#4A3F35]">Focus Activity</h3>
-          <p className="text-sm text-[#8C7A6B] font-medium mt-1">Consistency over the last year</p>
+          <h3 className="text-xl font-bold text-[var(--app-text)]">Productivity Heatmap</h3>
+          <p className="text-sm text-[var(--app-text-muted)] font-medium mt-1">Consistency over the last year</p>
         </div>
-        <div className="flex items-center gap-2 text-[10px] font-bold text-[#8C7A6B] uppercase tracking-wider">
+        <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-wider">
           <span>Less</span>
           <div className="flex gap-1.5 items-center">
             {[0, 1, 2, 3, 4].map(l => (
@@ -171,10 +219,9 @@ export default function FocusActivityHeatmap() {
       >
         <div className="min-w-max pr-4">
           {/* Month Labels Grid - Matches Heatmap Grid Exactly */}
-          <div
-            className="grid mb-4 h-4 ml-[41px] pointer-events-none"
+          <div className="grid mb-4 h-4 ml-[44px] pointer-events-none"
             style={{
-              gridTemplateColumns: `repeat(${WEEKS_TO_SHOW}, 11px)`,
+              gridTemplateColumns: `repeat(${WEEKS_TO_SHOW}, 13px)`,
               columnGap: '5px'
             }}
           >
@@ -183,7 +230,7 @@ export default function FocusActivityHeatmap() {
               return (
                 <span
                   key={i}
-                  className="text-[10px] font-bold text-[#8C7A6B]/60 uppercase whitespace-nowrap"
+                  className="text-[10px] font-bold text-[var(--app-text-muted)] opacity-60 uppercase whitespace-nowrap"
                   style={{ gridColumnStart: m.index + 1 }}
                 >
                   {m.label}
@@ -195,9 +242,11 @@ export default function FocusActivityHeatmap() {
           <div className="flex gap-[5px] focus-activity-grid">
             {/* Day Labels Column */}
             <div className="flex flex-col gap-[5px] mr-2 mt-0.5 w-[31px] shrink-0">
-              {['Sun', '', 'Tue', '', 'Thu', '', 'Sat'].map((day, di) => (
-                <span key={di} className="text-[9px] font-bold text-[#8C7A6B]/50 h-[11px] flex items-center leading-none tracking-tighter uppercase whitespace-nowrap">{day}</span>
-              ))}
+              {['Sun', '', 'Tue', '', 'Thu', '', 'Sat'].map((day, di) => (day ? (
+                <span key={di} className="text-[9px] font-bold text-[var(--app-text-muted)] opacity-50 h-[13px] flex items-center leading-none tracking-tighter uppercase whitespace-nowrap">{day}</span>
+              ) : (
+                <div key={di} className="h-[13px]" />
+              )))}
             </div>
 
             {/* Heatmap Grid */}
@@ -209,7 +258,7 @@ export default function FocusActivityHeatmap() {
                       key={day.date}
                       onMouseEnter={(e) => handleMouseEnter(e, day)}
                       onMouseLeave={handleMouseLeave}
-                      className={`w-[11px] h-[11px] rounded-[2px] border-[0.5px] transition-all duration-300 hover:scale-125 cursor-pointer relative ${getColor(day.level)}`}
+                      className={`w-[13px] h-[13px] rounded-[3px] border-[0.5px] transition-all duration-300 hover:scale-125 cursor-pointer relative ${getColor(day.level)}`}
                     >
                     </div>
                   ))}
@@ -220,15 +269,27 @@ export default function FocusActivityHeatmap() {
         </div>
       </div>
 
-      <div className="mt-8 flex justify-between items-center text-[11px] text-[#8C7A6B] font-medium border-t border-[#F4EFE6] pt-5">
-        <div className="flex gap-6">
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-            Total Focused: <span className="font-bold text-[#4A3F35] tracking-tight">{totalFocusTime.toFixed(1)}h</span>
+      <div className="mt-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 text-[11px] text-[var(--app-text-muted)] font-medium border-t border-[var(--app-border)] pt-5">
+        <div className="grid grid-cols-1 sm:flex gap-4 sm:gap-6 w-full flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+            <span className="opacity-70 font-semibold tracking-tight">This Week:</span>
+            <span className="font-bold text-[var(--app-text)] tracking-tight text-xs">{periodStats.week.toFixed(1)}h</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#30a14e]" />
-            Current Streak: <span className="font-bold text-[#4A3F35] tracking-tight">{contextStreak} days</span>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/60" />
+            <span className="opacity-70 font-semibold tracking-tight">This Month:</span>
+            <span className="font-bold text-[var(--app-text)] tracking-tight text-xs">{periodStats.month.toFixed(1)}h</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            <span className="opacity-70 font-semibold tracking-tight">This Year:</span>
+            <span className="font-bold text-[var(--app-text)] tracking-tight text-xs">{periodStats.year.toFixed(1)}h</span>
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--app-accent)]" />
+            <span className="opacity-70 font-semibold tracking-tight text-[var(--app-accent)]">Best Week:</span>
+            <span className="font-bold text-[var(--app-accent)] tracking-tight text-xs shadow-sm bg-[var(--app-accent)]/10 px-2 py-0.5 rounded-full">{periodStats.bestWeek}</span>
           </div>
         </div>
       </div>

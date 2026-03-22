@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { taskService, statsService } from '../services/dataService';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
+import { taskService, statsService, profileService } from '../services/dataService';
 
 const TaskContext = createContext();
 
@@ -27,6 +27,7 @@ export const TaskProvider = ({ children, user }) => {
   const [completedSessions, setCompletedSessions] = useState(0);
 
   const lastSyncedStats = useRef({ focus: 0, sessions: 0, goal: 0, isGoalSet: false });
+  const lastSyncedSettings = useRef(null);
 
   // Get local YYYY-MM-DD
   const getLocalDate = () => {
@@ -36,82 +37,132 @@ export const TaskProvider = ({ children, user }) => {
     return localDate.toISOString().split('T')[0];
   };
 
-  const todayStr = getLocalDate();
+  // Get memoized local YYYY-MM-DD
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  }, []);
 
   // Initialization
   useEffect(() => {
+    let isCanceled = false;
+
     const initData = async () => {
       setIsLoading(true);
+      const withTimeout = (p, ms = 6000) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error("Timeout")), ms))]);
+
       try {
-        const fetchedTasks = await taskService.fetchTasks(user);
+        const [fetchedTasks, profile, stats] = await Promise.all([
+          withTimeout(taskService.fetchTasks(user)).catch(() => []),
+          withTimeout(profileService.fetchProfile(user)).catch(() => ({ settings: null, theme: 'light' })),
+          withTimeout(statsService.fetchDailyStats(user, todayStr)).catch(() => ({ today: null, history: [] }))
+        ]);
+
+        if (isCanceled) return;
+
+        // 1. Tasks
         setTasks(fetchedTasks || []);
 
-        const stats = await statsService.fetchDailyStats(user, todayStr);
-        
-        if (stats.today) {
-          const t = stats.today;
-          setTodayFocus(Number(t.total_focus_hours || t.focus || 0));
-          setTodaySessions(t.sessions_count || t.sessions || 0);
-          const goal = Number(t.daily_goal_minutes || t.goal || 0);
-          setDailyGoalMinutes(goal);
-          setIsGoalSet(goal > 0);
-          if (t.settings) setTimerSettings(t.settings);
-        } else {
-          setTodayFocus(0);
-          setTodaySessions(0);
-          setDailyGoalMinutes(0);
-          setIsGoalSet(false);
+        // 2. Profile Settings
+        if (profile?.settings) {
+          setTimerSettings(profile.settings);
+          lastSyncedSettings.current = JSON.stringify(profile.settings);
         }
 
-        if (stats.history) {
+        // 3. Stats
+        if (stats?.today) {
+          const t = stats.today;
+          const focus = Number(t.total_focus_hours || t.focus || 0);
+          const sessions = Number(t.sessions_count || t.sessions || 0);
+          const goal = Number(t.daily_goal_minutes || t.goal || 0);
+          
+          setTodayFocus(isNaN(focus) ? 0 : focus);
+          setTodaySessions(isNaN(sessions) ? 0 : sessions);
+          setDailyGoalMinutes(isNaN(goal) ? 0 : goal);
+          setIsGoalSet(goal > 0);
+
+          lastSyncedStats.current = { focus: isNaN(focus) ? 0 : focus, sessions: isNaN(sessions) ? 0 : sessions, goal, isGoalSet: goal > 0 };
+        } else {
+          setTodayFocus(0); setTodaySessions(0); setDailyGoalMinutes(0); setIsGoalSet(false);
+          lastSyncedStats.current = { focus: 0, sessions: 0, goal: 0, isGoalSet: false };
+        }
+
+        if (stats?.history && Array.isArray(stats.history)) {
           setDailyHistory(stats.history);
           setCurrentStreak(statsService.calculateStreak(stats.history));
-          const total = stats.history.reduce((acc, row) => acc + Number(row.total_focus_hours), 0);
-          setTotalFocusTime(Number(total.toFixed(2)));
+          
+          const totalRaw = stats.history.reduce((acc, row) => {
+            const val = Number(row.total_focus_hours || 0);
+            return acc + (isNaN(val) ? 0 : val);
+          }, 0);
+          setTotalFocusTime(isNaN(totalRaw) ? 0 : Number(totalRaw.toFixed(2)));
         }
-
-        // Sync ref
-        lastSyncedStats.current = {
-          focus: Number(todayFocus),
-          sessions: todaySessions,
-          goal: dailyGoalMinutes,
-          isGoalSet: isGoalSet
-        };
       } catch (err) {
-        console.error("Initialization error:", err);
+        // Silently handle top-level errors as we have per-fetch catch/timeout
       } finally {
-        setIsLoading(false);
+        if (!isCanceled) setIsLoading(false);
       }
     };
 
     initData();
+    return () => { isCanceled = true; };
   }, [user, todayStr]);
 
-  // Sync effect
+  // Sync Stats Effect (Reduced frequency)
   useEffect(() => {
     if (isLoading) return;
-    const hasChanged =
+
+    // 1. Sync Daily Stats
+    const statsChanged =
       todayFocus !== lastSyncedStats.current.focus ||
       todaySessions !== lastSyncedStats.current.sessions ||
       dailyGoalMinutes !== lastSyncedStats.current.goal ||
       isGoalSet !== lastSyncedStats.current.isGoalSet;
 
-    if (!hasChanged) return;
+    if (statsChanged) {
+      const statsToSync = {
+        focus: todayFocus,
+        sessions: todaySessions,
+        goal: dailyGoalMinutes,
+        isGoalSet
+      };
 
-    const statsToSync = {
-      focus: todayFocus,
-      sessions: todaySessions,
-      goal: dailyGoalMinutes,
-      isGoalSet,
-      settings: timerSettings
-    };
+      statsService.syncStats(user, todayStr, statsToSync).then(() => {
+        lastSyncedStats.current = { focus: todayFocus, sessions: todaySessions, goal: dailyGoalMinutes, isGoalSet };
+      });
+    }
+  }, [todayFocus, todaySessions, dailyGoalMinutes, isGoalSet, user, todayStr, isLoading]);
 
-    statsService.syncStats(user, todayStr, statsToSync).then(() => {
-      lastSyncedStats.current = { focus: todayFocus, sessions: todaySessions, goal: dailyGoalMinutes, isGoalSet: isGoalSet };
-    });
-  }, [todayFocus, todaySessions, dailyGoalMinutes, isGoalSet, timerSettings, user, todayStr, isLoading]);
+  const syncTimerSettings = async (settings) => {
+    const settingsStr = JSON.stringify(settings);
+    if (settingsStr === lastSyncedSettings.current) return;
+
+    try {
+      await profileService.updateProfile(user, { settings });
+      lastSyncedSettings.current = settingsStr;
+    } catch (err) {
+      console.error("Error syncing profile settings:", err);
+    }
+  };
 
   // Actions
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [isActive, setIsActive] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+
+  // Initial timeLeft based on settings
+  useEffect(() => {
+    if (timeLeft === 0 && !isActive) {
+      const duration = timerMode === 'focus'
+        ? timerSettings.focusDuration
+        : (timerMode === 'shortBreak' ? timerSettings.shortBreakDuration : timerSettings.longBreakDuration);
+      setTimeLeft(duration * 60);
+    }
+  }, [timerSettings, timerMode, isActive, timeLeft]);
+
   const addTask = async (taskOrTasks) => {
     try {
       const taskArr = Array.isArray(taskOrTasks) ? taskOrTasks : [taskOrTasks];
@@ -145,11 +196,47 @@ export const TaskProvider = ({ children, user }) => {
     if (!task) return;
     const isCompleted = task.logged >= task.needed;
     const newLogged = isCompleted ? 0 : task.needed;
+    const hoursDiff = newLogged - task.logged;
+
     await updateTask(taskId, { logged: newLogged });
+
+    // Sync Stats
+    if (task.date === todayStr) {
+      setTodayFocus(prev => Number((prev + hoursDiff).toFixed(4)));
+    } else {
+      const targetDate = task.date;
+      setDailyHistory(prev => {
+        const existing = prev.find(h => h.stats_date === targetDate);
+        if (existing) {
+          const updatedHistory = prev.map(h => h.stats_date === targetDate
+            ? { ...h, total_focus_hours: Number((Number(h.total_focus_hours || 0) + hoursDiff).toFixed(4)) }
+            : h
+          );
+          
+          const updatedRecord = updatedHistory.find(h => h.stats_date === targetDate);
+          statsService.syncStats(user, targetDate, {
+            focus: updatedRecord.total_focus_hours,
+            sessions: updatedRecord.sessions_count || updatedRecord.sessions || 0,
+            goal: updatedRecord.daily_goal_minutes || updatedRecord.goal || 0,
+            isGoalSet: (updatedRecord.daily_goal_minutes || updatedRecord.goal) > 0
+          });
+          return updatedHistory;
+        } else {
+          const newRecord = { stats_date: targetDate, total_focus_hours: hoursDiff };
+          statsService.syncStats(user, targetDate, {
+            focus: hoursDiff,
+            sessions: 0,
+            goal: 0,
+            isGoalSet: false
+          });
+          return [newRecord, ...prev].sort((a,b) => b.stats_date.localeCompare(a.stats_date));
+        }
+      });
+    }
   };
 
   const addFocusTime = (hoursToAdd) => {
-    if (!hoursToAdd || hoursToAdd <= 0) return;
+    if (!hoursToAdd) return;
     setTodayFocus(prev => Number((prev + hoursToAdd).toFixed(4)));
   };
 
@@ -171,7 +258,11 @@ export const TaskProvider = ({ children, user }) => {
       setDailyGoalMinutes, isGoalSet, setIsGoalSet, totalFocusTime,
       timerSettings, setTimerSettings, timerMode, setTimerMode,
       completedSessions, setCompletedSessions, incrementSessions,
-      dailyHistory
+      dailyHistory,
+      timeLeft, setTimeLeft, isActive, setIsActive,
+      sessionStartTime, setSessionStartTime,
+      selectedTaskId, setSelectedTaskId,
+      syncTimerSettings
     }}>
       {children}
     </TaskContext.Provider>

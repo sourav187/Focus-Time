@@ -32,7 +32,7 @@ export default function StatsView() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-8 py-8 flex flex-col gap-10 w-full animate-in fade-in zoom-in-95 duration-500">
-      
+
       {/* Header */}
       <div className="flex flex-col gap-2">
         <h2 className="text-3xl font-bold tracking-tight text-[var(--app-text)]">Deep Productivity Insights</h2>
@@ -44,7 +44,7 @@ export default function StatsView() {
         {/* Today's Focus - PRIMARY STRONG */}
         <div className={`p-5 rounded-3xl shadow-[0_20px_40px_rgba(232,157,113,0.25)] border border-white/20 flex flex-col gap-3 relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] hover:-translate-y-1 group text-white ${isCompleted ? 'bg-gradient-to-br from-[#10B981] to-[#059669]' : 'bg-gradient-to-br from-[#FF9D6C] to-[#E89D71]'}`}>
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full blur-2xl group-hover:bg-white/30 transition-colors duration-500 opacity-60" />
-          
+
           <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white w-max transition-all duration-300 group-hover:scale-110 relative z-10 border border-white/10">
             {isCompleted ? <Award size={18} strokeWidth={2.5} /> : <TrendingUp size={18} strokeWidth={2.5} />}
           </div>
@@ -54,10 +54,10 @@ export default function StatsView() {
               <h3 className="text-3xl font-black">{todayFocus.toFixed(1)}h</h3>
               <span className="text-sm text-white/70 font-semibold">/ {todayPlannedHours.toFixed(1)}h</span>
             </div>
-            
+
             <div className="mt-3 flex flex-col gap-2">
               <div className="w-full bg-black/10 h-3 rounded-full overflow-hidden backdrop-blur-sm border border-white/10">
-                <div 
+                <div
                   className={`h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_12px_rgba(255,255,255,0.8)] ${isCompleted ? 'bg-white' : 'bg-white'}`}
                   style={{ width: `${isEmpty ? 0 : focusProgress}%` }}
                 />
@@ -69,7 +69,7 @@ export default function StatsView() {
             </div>
           </div>
         </div>
-        
+
         {/* Tomorrow's Plan - SOFT LIGHT GREEN */}
         <div className="bg-[var(--app-card)] p-5 rounded-3xl shadow-sm border border-emerald-100 dark:border-emerald-900/40 flex flex-col gap-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1 group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 dark:bg-emerald-950/20 rounded-full blur-2xl opacity-60" />

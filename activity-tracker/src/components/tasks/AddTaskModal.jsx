@@ -69,7 +69,10 @@ export default function AddTaskModal({ isOpen, onClose, editingTask = null }) {
         const tasksToCreate = [];
         const start = new Date(date + 'T12:00:00');
         const end = new Date(endDate + 'T12:00:00');
-        const groupId = `group-${Date.now()}`;
+        // Generate a pseudo-UUID string that is safe in all environments
+        const groupId = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        );
 
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           const currentDayStr = d.toISOString().split('T')[0];

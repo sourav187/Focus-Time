@@ -10,7 +10,7 @@ export default function PlannedVsActualChart() {
   const getPlannedVsActualData = () => {
     const dataMap = {};
     const today = new Date();
-    
+
     // Calculate start date based on weekOffset
     // weekOffset 0 = last 7 days ending today
     // weekOffset 1 = next 7 days after today
@@ -25,12 +25,12 @@ export default function PlannedVsActualChart() {
       const dStr = d.toISOString().split('T')[0];
       const dayLabel = d.toLocaleDateString(undefined, { weekday: 'short' });
       const dayNum = d.getDate();
-      dataMap[dStr] = { 
-        name: dayLabel, 
+      dataMap[dStr] = {
+        name: dayLabel,
         fullDate: dStr,
         display: `${dayLabel} ${dayNum}`,
-        planned: 0, 
-        actual: 0 
+        planned: 0,
+        actual: 0
       };
     }
 
@@ -91,20 +91,20 @@ export default function PlannedVsActualChart() {
 
           {/* Controls */}
           <div className="flex items-center bg-[var(--app-bg)] p-1 rounded-2xl border border-[var(--app-border)]">
-            <button 
+            <button
               onClick={handlePrevWeek}
               className="p-2 hover:bg-[var(--app-card)] hover:shadow-sm rounded-xl transition-all text-[var(--app-text)]"
               title="Previous Week"
             >
               <ChevronLeft size={18} />
             </button>
-            <button 
+            <button
               onClick={handleReset}
               className={`px-3 py-1 text-xs font-bold rounded-xl transition-all ${weekOffset === 0 ? 'bg-[var(--app-card)] shadow-sm text-[var(--app-accent)]' : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'}`}
             >
               Today
             </button>
-            <button 
+            <button
               onClick={handleNextWeek}
               className="p-2 hover:bg-[var(--app-card)] hover:shadow-sm rounded-xl transition-all text-[var(--app-text)]"
               title="Next Week"
@@ -125,43 +125,43 @@ export default function PlannedVsActualChart() {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
-            <XAxis 
-              dataKey="display" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: 'var(--app-text-muted)', fontSize: 12, fontWeight: 600 }} 
-              dy={10} 
+            <XAxis
+              dataKey="display"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: 'var(--app-text-muted)', fontSize: 12, fontWeight: 600 }}
+              dy={10}
             />
-            <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: 'var(--app-text-muted)', fontSize: 12, fontWeight: 600 }} 
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: 'var(--app-text-muted)', fontSize: 12, fontWeight: 600 }}
             />
-            <Tooltip 
+            <Tooltip
               cursor={{ fill: 'var(--app-bg)', radius: 10 }}
-              contentStyle={{ 
-                borderRadius: '16px', 
-                border: 'none', 
-                boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
+              contentStyle={{
+                borderRadius: '16px',
+                border: 'none',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
                 backgroundColor: 'var(--app-card)',
                 color: 'var(--app-text)',
-                fontWeight: 600 
+                fontWeight: 600
               }}
               formatter={(value) => [`${value} hrs`]}
             />
-            <Bar 
-                dataKey="planned" 
-                fill="var(--app-bg)" 
-                radius={[6, 6, 0, 0]} 
-                barSize={24}
-                name="Planned Time"
+            <Bar
+              dataKey="planned"
+              fill="var(--app-bg)"
+              radius={[6, 6, 0, 0]}
+              barSize={24}
+              name="Planned Time"
             />
-            <Bar 
-                dataKey="actual" 
-                fill="url(#actualGradient)" 
-                radius={[6, 6, 0, 0]} 
-                barSize={24}
-                name="Actual Focus"
+            <Bar
+              dataKey="actual"
+              fill="url(#actualGradient)"
+              radius={[6, 6, 0, 0]}
+              barSize={24}
+              name="Actual Focus"
             />
           </BarChart>
         </ResponsiveContainer>

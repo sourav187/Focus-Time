@@ -85,6 +85,18 @@ export default function TimerDisplay({
                 className="w-16 bg-[var(--app-bg)] border-transparent border-2 focus:border-[#059669] rounded-lg p-1 text-center font-bold text-sm outline-none text-[var(--app-text)]"
               />
             </div>
+            <div className="pt-2 mt-2 border-t border-[var(--app-border)] border-dashed flex justify-between items-center">
+              <label className="text-xs font-medium text-[var(--app-text-muted)]">Long break after</label>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="number" 
+                  value={timerSettings.sessionsBeforeLongBreak} 
+                  onChange={(e) => setTimerSettings({...timerSettings, sessionsBeforeLongBreak: parseInt(e.target.value) || 1})}
+                  className="w-12 bg-[var(--app-bg)] border-transparent border-2 focus:border-[var(--app-accent)] rounded-lg p-1 text-center font-bold text-sm outline-none text-[var(--app-text)]"
+                />
+                <span className="text-[10px] font-bold text-[var(--app-text-muted)] uppercase tracking-tight">Sessions</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

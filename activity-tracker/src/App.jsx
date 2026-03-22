@@ -6,6 +6,7 @@ import TasksView from './pages/TasksView';
 import LoginModal from './components/Login/LoginModal';
 import { TaskProvider } from './context/TaskContext';
 import { supabase } from './utils/supabaseClient';
+import { profileService } from './services/dataService';
 
 function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -14,9 +15,11 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('focus-theme') === 'dark' || 
-           (!localStorage.getItem('focus-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    return localStorage.getItem('focus-theme') === 'dark' ||
+      (!localStorage.getItem('focus-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
+
+  const lastSyncedTheme = useRef(darkMode ? 'dark' : 'light');
 
   // Handle clicks outside dropdown to close it
   useEffect(() => {
@@ -30,12 +33,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Get initial auth state
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setUserProfile(session?.user ?? null);
-    });
+    };
+    initAuth();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserProfile(session?.user ?? null);
     });
@@ -43,19 +46,24 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Sync Theme with DB Profile
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('focus-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('focus-theme', 'light');
+    const themeStr = darkMode ? 'dark' : 'light';
+    if (darkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+    localStorage.setItem('focus-theme', themeStr);
+
+    if (userProfile && themeStr !== lastSyncedTheme.current) {
+      profileService.updateProfile(userProfile, { theme: themeStr }).then(() => {
+        lastSyncedTheme.current = themeStr;
+      });
     }
-  }, [darkMode]);
+  }, [darkMode, userProfile]);
 
   const handleAuth = async (payload) => {
     if (payload === 'LOGOUT') {
-      await supabase.auth.signOut();
+      supabase.auth.signOut();
+      setUserProfile(null);
       setShowLogin(false);
       return;
     }
@@ -66,19 +74,17 @@ function App() {
     if (mode === 'REGISTER') {
       const { error } = await supabase.auth.signUp({ email, password });
       authError = error;
-      if (!authError) {
-        alert("Registered! Note: If Supabase 'Confirm email' is ON, you must click the verification link in your email before you can log in.");
-      }
+      if (!authError) alert("Check your email for a verification link.");
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       authError = error;
     }
-    
+
     if (authError) {
       alert(authError.message);
       return;
     }
-    
+
     setShowLogin(false);
   };
 
@@ -89,7 +95,7 @@ function App() {
   ];
 
   const renderTab = () => {
-    switch(currentTab) {
+    switch (currentTab) {
       case 'dashboard': return <DashboardView />;
       case 'stats': return <StatsView />;
       case 'tasks': return <TasksView />;
@@ -180,16 +186,16 @@ function App() {
           </div>
         </nav>
 
-      {/* Render Current View */}
-      {renderTab()}
+        {/* Render Current View */}
+        {renderTab()}
 
-      {/* Login Modal Config */}
-      <LoginModal 
-        isOpen={showLogin} 
-        onClose={() => setShowLogin(false)} 
-        onSave={handleAuth}
-        currentUser={userProfile}
-      />
+        {/* Login Modal Config */}
+        <LoginModal
+          isOpen={showLogin}
+          onClose={() => setShowLogin(false)}
+          onSave={handleAuth}
+          currentUser={userProfile}
+        />
       </div>
     </TaskProvider>
   );

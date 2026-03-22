@@ -98,6 +98,18 @@ function App() {
       const { error } = await supabase.auth.signUp({ email, password });
       authError = error;
       if (!authError) alert("Check your email for a verification link.");
+    } else if (mode === 'RESET') {
+      console.log("Attempting password reset for:", email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
+      if (error) {
+        authError = error;
+      } else {
+        alert("Password reset email sent! Check your inbox.");
+        setShowLogin(false);
+        return;
+      }
     } else {
       console.log("Attempting login for:", email);
       const { error } = await supabase.auth.signInWithPassword({ email, password });

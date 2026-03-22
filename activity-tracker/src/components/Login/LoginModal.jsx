@@ -3,12 +3,12 @@ import { User, Lock, Mail } from 'lucide-react';
 
 export default function LoginModal({ isOpen, onClose, onSave, currentUser, error, clearError }) {
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [viewMode, setViewMode] = useState('LOGIN'); // 'LOGIN', 'REGISTER', 'RESET'
 
   useEffect(() => {
     if (!currentUser) {
       setLoginForm({ email: '', password: '' });
-      setIsRegistering(false);
+      setViewMode('LOGIN');
     }
   }, [currentUser, isOpen]);
 
@@ -16,7 +16,7 @@ export default function LoginModal({ isOpen, onClose, onSave, currentUser, error
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ ...loginForm, mode: isRegistering ? 'REGISTER' : 'LOGIN' });
+    onSave({ ...loginForm, mode: viewMode });
   };
 
   return (
@@ -49,8 +49,12 @@ export default function LoginModal({ isOpen, onClose, onSave, currentUser, error
           </>
         ) : (
           <>
-            <h3 className="text-2xl font-bold text-center text-[var(--app-text)] mb-2">{isRegistering ? 'Create Account' : 'Welcome Back'}</h3>
-            <p className="text-sm font-medium text-center text-[var(--app-text-muted)] mb-6">{isRegistering ? 'Sign up to sync your sessions.' : 'Sign in to access your dashboard.'}</p>
+            <h3 className="text-2xl font-bold text-center text-[var(--app-text)] mb-2">
+              {viewMode === 'REGISTER' ? 'Create Account' : viewMode === 'RESET' ? 'Reset Password' : 'Welcome Back'}
+            </h3>
+            <p className="text-sm font-medium text-center text-[var(--app-text-muted)] mb-6">
+              {viewMode === 'REGISTER' ? 'Sign up to sync your sessions.' : viewMode === 'RESET' ? 'Enter email to receive reset link.' : 'Sign in to access your dashboard.'}
+            </p>
 
             {error && (
               <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
@@ -72,29 +76,36 @@ export default function LoginModal({ isOpen, onClose, onSave, currentUser, error
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-[var(--app-text-muted)] mb-2 ml-1 flex items-center gap-1.5"><Lock size={14} /> Password</label>
-                <input
-                  type="password"
-                  value={loginForm.password}
-                  onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full px-5 py-4 rounded-[1.25rem] border-2 border-[var(--app-border)] bg-[var(--app-bg)]/80 focus:bg-[var(--app-card)] focus:outline-none focus:border-[var(--app-accent)]/30 focus:ring-4 focus:ring-[var(--app-accent)]/10 transition-all font-semibold text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]/50"
-                  required
-                  minLength={6}
-                />
-              </div>
+              {viewMode !== 'RESET' && (
+                <div>
+                  <div className="flex justify-between items-center mb-2 mx-1">
+                    <label className="text-xs font-bold uppercase tracking-widest text-[var(--app-text-muted)] flex items-center gap-1.5"><Lock size={14} /> Password</label>
+                    {viewMode === 'LOGIN' && (
+                      <button type="button" onClick={() => { clearError(); setViewMode('RESET'); }} className="text-xs font-bold text-[var(--app-accent)] hover:opacity-80 transition-opacity">Forgot Password?</button>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    value={loginForm.password}
+                    onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full px-5 py-4 rounded-[1.25rem] border-2 border-[var(--app-border)] bg-[var(--app-bg)]/80 focus:bg-[var(--app-card)] focus:outline-none focus:border-[var(--app-accent)]/30 focus:ring-4 focus:ring-[var(--app-accent)]/10 transition-all font-semibold text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]/50"
+                    required={viewMode !== 'RESET'}
+                    minLength={6}
+                  />
+                </div>
+              )}
 
               <div className="mt-2 text-center">
                 <button
                   type="button"
                   onClick={() => {
                     clearError();
-                    setIsRegistering(!isRegistering);
+                    setViewMode(viewMode === 'LOGIN' ? 'REGISTER' : 'LOGIN');
                   }}
                   className="text-xs font-bold text-[var(--app-text-muted)] hover:text-[var(--app-accent)] transition-colors"
                 >
-                  {isRegistering ? "Already have an account? Sign In" : "Don't have an account? Register"}
+                  {viewMode === 'REGISTER' ? "Already have an account? Sign In" : viewMode === 'RESET' ? "Back to Sign In" : "Don't have an account? Register"}
                 </button>
               </div>
 
@@ -103,7 +114,7 @@ export default function LoginModal({ isOpen, onClose, onSave, currentUser, error
                   type="submit"
                   className="w-full py-4 rounded-[1.25rem] font-bold text-lg bg-[var(--app-accent)] text-white hover:bg-[#d68b60] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
                 >
-                  {isRegistering ? 'Sign Up' : 'Sign In'}
+                  {viewMode === 'REGISTER' ? 'Sign Up' : viewMode === 'RESET' ? 'Send Reset Link' : 'Sign In'}
                 </button>
               </div>
               <button

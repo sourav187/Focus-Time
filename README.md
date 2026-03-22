@@ -38,9 +38,9 @@ https://focus-time-roan.vercel.app
 
 ---
 
-## 📸 Screenshots (optional)
+## 📸 Screenshots
+<img width="1274" height="2666" alt="combined_dashboard" src="https://github.com/user-attachments/assets/0577fa1f-0c94-41e8-9764-d38fe5422822" />
 
-<img width="2011" height="1095" alt="image" src="https://github.com/user-attachments/assets/c6362674-6a94-4062-bdc8-473fc3036bfc" />
 
 
 ---

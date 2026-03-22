@@ -11,6 +11,7 @@ import { profileService } from './services/dataService';
 function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [showLogin, setShowLogin] = useState(false);
+  const [authError, setAuthError] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -61,8 +62,10 @@ function App() {
   }, [darkMode, userProfile]);
 
   const handleAuth = async (payload) => {
+    console.log("Auth event triggered:", payload);
+    
     if (payload === 'LOGOUT') {
-      supabase.auth.signOut();
+      await supabase.auth.signOut();
       setUserProfile(null);
       setShowLogin(false);
       return;
@@ -72,19 +75,43 @@ function App() {
     let authError = null;
 
     if (mode === 'REGISTER') {
+      console.log("Attempting registration check for:", email);
+      // 1. Proactive check for existing profile
+      try {
+        // Secure check: calling an RPC function for a private boolean response
+        const { data: exists, error: checkError } = await supabase
+          .rpc('check_user_email_exists', { email_to_check: email });
+          
+        if (checkError) console.error("Database check failed:", checkError);
+        
+        if (exists) {
+          console.warn("User already exists in profiles table.");
+          setAuthError("An account with this email already exists. Please sign in.");
+          return;
+        }
+      } catch (err) {
+        console.error("Critical check error:", err);
+      }
+
+      console.log("No existing user found. Proceeding with signUp...");
+      setAuthError(null);
       const { error } = await supabase.auth.signUp({ email, password });
       authError = error;
       if (!authError) alert("Check your email for a verification link.");
     } else {
+      console.log("Attempting login for:", email);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       authError = error;
     }
 
     if (authError) {
-      alert(authError.message);
+      console.error("Auth provider error:", authError);
+      setAuthError(authError.message);
       return;
     }
 
+    console.log("Auth success!");
+    setAuthError(null);
     setShowLogin(false);
   };
 
@@ -173,7 +200,10 @@ function App() {
             </button>
 
             <button
-              onClick={() => setShowLogin(true)}
+              onClick={() => {
+                setAuthError(null);
+                setShowLogin(true);
+              }}
               className="flex items-center gap-2 px-2 sm:px-4 py-2 rounded-xl text-[var(--app-text-muted)] hover:bg-[var(--app-card)] transition-all font-bold group"
             >
               <div className="p-1.5 bg-[var(--app-bg)] rounded-xl group-hover:bg-[var(--app-card)] transition-colors border border-[var(--app-border)]">
@@ -195,6 +225,8 @@ function App() {
           onClose={() => setShowLogin(false)}
           onSave={handleAuth}
           currentUser={userProfile}
+          error={authError}
+          clearError={() => setAuthError(null)}
         />
       </div>
     </TaskProvider>

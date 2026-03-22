@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area } from 'recharts';
 import { useTasks } from '../../context/TaskContext';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 export default function PlannedVsActualChart() {
-  const { tasks } = useTasks();
+  const { tasks, dailyHistory, todayFocus, todayStr } = useTasks();
   const [weekOffset, setWeekOffset] = useState(0);
 
   const getPlannedVsActualData = () => {
@@ -12,9 +12,6 @@ export default function PlannedVsActualChart() {
     const today = new Date();
 
     // Calculate start date based on weekOffset
-    // weekOffset 0 = last 7 days ending today
-    // weekOffset 1 = next 7 days after today
-    // weekOffset -1 = 7 days before the last 7 days
     const start = new Date();
     start.setDate(today.getDate() - 6 + (weekOffset * 7));
 
@@ -34,13 +31,26 @@ export default function PlannedVsActualChart() {
       };
     }
 
-    // Aggregate tasks
+    // Aggregate tasks for PLANNED time
     tasks.forEach(task => {
-      if (dataMap[task.date]) {
+      // Use both single date and date range tasks
+      if (task.date && dataMap[task.date]) {
         dataMap[task.date].planned += Number(task.needed || 0);
-        dataMap[task.date].actual += Number(task.logged || 0);
       }
     });
+
+    // Aggregate daily stats for ACTUAL focus time
+    dailyHistory.forEach(record => {
+      const dateStr = record.stats_date;
+      if (dataMap[dateStr]) {
+        dataMap[dateStr].actual = Number(record.total_focus_hours || 0);
+      }
+    });
+
+    // Live update for today's focus time
+    if (dataMap[todayStr]) {
+      dataMap[todayStr].actual = todayFocus;
+    }
 
     // Convert to array and round values
     return Object.values(dataMap).map(day => ({
@@ -80,12 +90,16 @@ export default function PlannedVsActualChart() {
           {/* Legend */}
           <div className="hidden sm:flex items-center gap-4 mr-2">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+              <div className="w-3 h-3 rounded-full bg-slate-600 dark:bg-slate-500"></div>
               <span className="text-xs font-bold text-[var(--app-text-muted)]">Planned</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[var(--app-accent)]"></div>
               <span className="text-xs font-bold text-[var(--app-text-muted)]">Actual</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-[var(--app-accent)]"></div>
+              <span className="text-xs font-bold text-[var(--app-text-muted)]">Trend</span>
             </div>
           </div>
 
@@ -117,11 +131,15 @@ export default function PlannedVsActualChart() {
 
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <ComposedChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="actualGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#6366F1" stopOpacity={1} />
-                <stop offset="100%" stopColor="#4F46E5" stopOpacity={1} />
+                <stop offset="0%" stopColor="var(--app-accent)" stopOpacity={1} />
+                <stop offset="100%" stopColor="var(--app-accent)" stopOpacity={0.8} />
+              </linearGradient>
+              <linearGradient id="lineGlow" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--app-accent)" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="var(--app-accent)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
@@ -147,11 +165,16 @@ export default function PlannedVsActualChart() {
                 color: 'var(--app-text)',
                 fontWeight: 600
               }}
-              formatter={(value) => [`${value} hrs`]}
+              formatter={(value, name) => {
+                if (name === 'Trend') return [null, null];
+                return [`${value} hrs`, name];
+              }}
             />
+            
+            {/* Bars */}
             <Bar
               dataKey="planned"
-              fill="var(--app-bg)"
+              fill="rgba(71, 85, 105, 0.4)"
               radius={[6, 6, 0, 0]}
               barSize={24}
               name="Planned Time"
@@ -163,7 +186,18 @@ export default function PlannedVsActualChart() {
               barSize={24}
               name="Actual Focus"
             />
-          </BarChart>
+
+            {/* Trend Line */}
+            <Line
+              type="monotone"
+              dataKey="actual"
+              stroke="var(--app-accent)"
+              strokeWidth={3}
+              dot={{ r: 4, fill: 'var(--app-accent)', strokeWidth: 2, stroke: '#fff' }}
+              activeDot={{ r: 6, strokeWidth: 0 }}
+              name="Trend"
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>

@@ -172,6 +172,7 @@ export const profileService = {
             .from('profiles')
             .upsert({ 
               id: user.id, 
+              email: user.email,
               timer_settings: defaultSettings, 
               app_theme: 'light',
               updated_at: new Date().toISOString() 
@@ -206,7 +207,12 @@ export const profileService = {
     if (user) {
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, ...dbUpdates, updated_at: new Date().toISOString() });
+        .upsert({ 
+          id: user.id, 
+          email: user.email, // Ensure email is always up to date
+          ...dbUpdates, 
+          updated_at: new Date().toISOString() 
+        });
       if (error) throw error;
     } else {
       if (updates.settings) localStorage.setItem('focus_timer_settings_guest', JSON.stringify(updates.settings));

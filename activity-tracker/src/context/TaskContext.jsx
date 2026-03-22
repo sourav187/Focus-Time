@@ -196,11 +196,47 @@ export const TaskProvider = ({ children, user }) => {
     if (!task) return;
     const isCompleted = task.logged >= task.needed;
     const newLogged = isCompleted ? 0 : task.needed;
+    const hoursDiff = newLogged - task.logged;
+
     await updateTask(taskId, { logged: newLogged });
+
+    // Sync Stats
+    if (task.date === todayStr) {
+      setTodayFocus(prev => Number((prev + hoursDiff).toFixed(4)));
+    } else {
+      const targetDate = task.date;
+      setDailyHistory(prev => {
+        const existing = prev.find(h => h.stats_date === targetDate);
+        if (existing) {
+          const updatedHistory = prev.map(h => h.stats_date === targetDate
+            ? { ...h, total_focus_hours: Number((Number(h.total_focus_hours || 0) + hoursDiff).toFixed(4)) }
+            : h
+          );
+          
+          const updatedRecord = updatedHistory.find(h => h.stats_date === targetDate);
+          statsService.syncStats(user, targetDate, {
+            focus: updatedRecord.total_focus_hours,
+            sessions: updatedRecord.sessions_count || updatedRecord.sessions || 0,
+            goal: updatedRecord.daily_goal_minutes || updatedRecord.goal || 0,
+            isGoalSet: (updatedRecord.daily_goal_minutes || updatedRecord.goal) > 0
+          });
+          return updatedHistory;
+        } else {
+          const newRecord = { stats_date: targetDate, total_focus_hours: hoursDiff };
+          statsService.syncStats(user, targetDate, {
+            focus: hoursDiff,
+            sessions: 0,
+            goal: 0,
+            isGoalSet: false
+          });
+          return [newRecord, ...prev].sort((a,b) => b.stats_date.localeCompare(a.stats_date));
+        }
+      });
+    }
   };
 
   const addFocusTime = (hoursToAdd) => {
-    if (!hoursToAdd || hoursToAdd <= 0) return;
+    if (!hoursToAdd) return;
     setTodayFocus(prev => Number((prev + hoursToAdd).toFixed(4)));
   };
 

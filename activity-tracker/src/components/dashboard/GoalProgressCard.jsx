@@ -24,6 +24,22 @@ export default function GoalProgressCard({
     StatusIcon = AlertCircle;
   }
 
+  const formatTime = (minutes) => {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    if (h > 0) return (
+      <>
+        <span>{h}</span><span className="text-sm font-medium opacity-60 ml-0.5 mr-1.5 underline underline-offset-4 decoration-2 decoration-[var(--app-accent)]/30">h</span>
+        <span>{m}</span><span className="text-sm font-medium opacity-60 ml-0.5">m</span>
+      </>
+    );
+    return (
+      <>
+        <span>{m}</span><span className="text-sm font-medium opacity-60 ml-0.5">m</span>
+      </>
+    );
+  };
+
   return (
     <div className="w-full max-w-md bg-[var(--app-card)] p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[var(--app-border)] transition-all duration-300 min-h-[160px] flex flex-col justify-center">
       {isLoading ? (
@@ -41,19 +57,18 @@ export default function GoalProgressCard({
               <span>{goalStatus}</span>
             </div>
           </div>
-
+ 
           <div className="flex justify-between items-center mb-5">
             <div className="flex items-center gap-2">
               {isGoalSet ? (
                 <div className="flex items-center gap-3">
-                  <h2 className="text-3xl font-bold text-[var(--app-text)] tracking-tight">
-                    <span className="text-[var(--app-accent)]">{totalFocusMinutes}</span>
-                    <span className="text-[var(--app-text-muted)] mx-2 text-2xl">/</span>
-                    <span>{dailyGoalMinutes}</span>
-                    <span className="text-sm font-medium text-[var(--app-text-muted)] ml-2">min</span>
+                  <h2 className="text-3xl font-bold text-[var(--app-text)] tracking-tight flex items-baseline">
+                    <span className="text-[var(--app-accent)]">{formatTime(totalFocusMinutes)}</span>
+                    <span className="text-[var(--app-text-muted)] mx-3 text-2xl font-light">/</span>
+                    <span className="opacity-90">{formatTime(dailyGoalMinutes)}</span>
                   </h2>
-                  <div className="text-[var(--app-text-muted)] opacity-40" title="Goal locked for today">
-                    <Lock size={18} />
+                  <div className="text-[var(--app-text-muted)] opacity-40 ml-1" title="Goal locked for today">
+                    <Lock size={16} />
                   </div>
                 </div>
               ) : (

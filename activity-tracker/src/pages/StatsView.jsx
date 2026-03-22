@@ -31,7 +31,7 @@ export default function StatsView() {
   const overdueHours = overdueTasks.reduce((acc, t) => acc + (t.needed - t.logged), 0);
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-8 py-8 flex flex-col gap-10 w-full animate-in fade-in zoom-in-95 duration-500">
+    <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8 flex flex-col gap-10 w-full animate-in fade-in zoom-in-95 duration-500">
 
       {/* Header */}
       <div className="flex flex-col gap-2">
@@ -71,10 +71,10 @@ export default function StatsView() {
         </div>
 
         {/* Tomorrow's Plan - SOFT LIGHT GREEN */}
-        <div className="bg-[var(--app-card)] p-5 rounded-3xl shadow-sm border border-emerald-100 dark:border-emerald-900/40 flex flex-col gap-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1 group">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 dark:bg-emerald-950/20 rounded-full blur-2xl opacity-60" />
+        <div className="bg-[var(--app-card)] p-5 rounded-3xl shadow-sm border border-[var(--app-border)] flex flex-col gap-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1 group">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl opacity-60" />
 
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-900/50 rounded-2xl text-emerald-600 dark:text-emerald-400 shadow-sm w-max transition-all duration-300 group-hover:scale-110 relative z-10 border border-emerald-100 dark:border-emerald-800/30">
+          <div className="p-3 bg-[var(--app-bg)] rounded-2xl text-emerald-500 shadow-sm w-max transition-all duration-300 group-hover:scale-110 relative z-10 border border-[var(--app-border)]">
             <Calendar size={18} strokeWidth={2.5} />
           </div>
           <div className="relative z-10">
@@ -85,7 +85,7 @@ export default function StatsView() {
                   <h3 className="text-3xl font-black text-[var(--app-text)]">{tomorrowTaskCount}</h3>
                   <span className="text-sm text-[var(--app-text-muted)] font-semibold">tasks</span>
                 </div>
-                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">{tomorrowPlannedHours.toFixed(1)}h planned</p>
+                <p className="text-[11px] text-emerald-500 font-bold mt-0.5">{tomorrowPlannedHours.toFixed(1)}h planned</p>
               </>
             ) : (
               <div className="mt-1">
@@ -97,36 +97,36 @@ export default function StatsView() {
         </div>
 
         {/* Overdue Tasks - RED ALERT */}
-        <div className={`${overdueCount > 0 ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/40 shadow-sm animate-soft-pulse' : 'bg-[var(--app-card)] border-[var(--app-border)] shadow-sm'} p-5 rounded-3xl border flex flex-col gap-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1 group`}>
-          <div className={`absolute -right-4 -top-4 w-24 h-24 ${overdueCount > 0 ? 'bg-red-100/30' : 'bg-slate-50/50'} rounded-full blur-2xl group-hover:opacity-100 transition-colors duration-500 opacity-60`} />
+        <div className={`${overdueCount > 0 ? 'bg-[var(--app-card)] border-red-500/20 shadow-sm animate-soft-pulse' : 'bg-[var(--app-card)] border-[var(--app-border)] shadow-sm'} p-5 rounded-3xl border flex flex-col gap-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1 group`}>
+          <div className={`absolute -right-4 -top-4 w-24 h-24 ${overdueCount > 0 ? 'bg-red-500/10' : 'bg-[var(--app-text-muted)]/5'} rounded-full blur-2xl group-hover:opacity-100 transition-colors duration-500 opacity-60`} />
 
-          <div className={`p-3 rounded-2xl ${overdueCount > 0 ? 'bg-red-50 dark:bg-red-900/50 text-red-500 dark:text-red-400 border-red-100 dark:border-red-800/30' : 'bg-[var(--app-bg)] text-emerald-500 dark:text-emerald-400 border-[var(--app-border)]'} shadow-sm w-max transition-all duration-300 group-hover:scale-110 relative z-10 border`}>
+          <div className={`p-3 rounded-2xl ${overdueCount > 0 ? 'bg-[var(--app-bg)] text-red-500 border-red-500/20' : 'bg-[var(--app-bg)] text-emerald-500 border-[var(--app-border)]'} shadow-sm w-max transition-all duration-300 group-hover:scale-110 relative z-10 border`}>
             {overdueCount > 0 ? <AlertCircle size={18} strokeWidth={2.5} /> : <Award size={18} strokeWidth={2.5} />}
           </div>
           <div className="relative z-10">
-            <p className={`text-[11px] font-bold uppercase tracking-wider ${overdueCount > 0 ? 'text-red-600 dark:text-red-300' : 'text-[var(--app-text-muted)]'}`}>Backlog</p>
+            <p className={`text-[11px] font-bold uppercase tracking-wider ${overdueCount > 0 ? 'text-red-500' : 'text-[var(--app-text-muted)]'}`}>Backlog</p>
             {overdueCount > 0 ? (
               <>
                 <div className="flex items-baseline gap-1 mt-0.5">
-                  <h3 className="text-3xl font-black text-red-600 dark:text-red-400">{overdueCount}</h3>
-                  <span className="text-sm text-red-600/70 dark:text-red-300/70 font-semibold">tasks</span>
+                  <h3 className="text-3xl font-black text-red-500">{overdueCount}</h3>
+                  <span className="text-sm text-red-500/70 font-semibold">tasks</span>
                 </div>
-                <p className="text-[11px] text-red-600/60 dark:text-red-400/60 font-medium mt-0.5">{overdueHours.toFixed(1)}h pending</p>
+                <p className="text-[11px] text-red-500/60 font-medium mt-0.5">{overdueHours.toFixed(1)}h pending</p>
               </>
             ) : (
               <div className="mt-1">
-                <h3 className="text-xl font-black text-emerald-600 dark:text-emerald-400">Clear Skies</h3>
-                <p className="text-[10px] text-emerald-600/60 dark:text-emerald-400/60 font-semibold leading-tight mt-1 uppercase tracking-tight">You're all caught up!</p>
+                <h3 className="text-xl font-black text-emerald-500">Clear Skies</h3>
+                <p className="text-[10px] text-emerald-500/60 font-semibold leading-tight mt-1 uppercase tracking-tight">You're all caught up!</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Current Streak - NEUTRAL ACCENT */}
-        <div className="bg-[var(--app-card)] p-5 rounded-3xl shadow-sm border border-rose-100 dark:border-rose-900/40 flex flex-col gap-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1 group">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-rose-50 dark:bg-rose-950/20 rounded-full blur-2xl opacity-60" />
+        <div className="bg-[var(--app-card)] p-5 rounded-3xl shadow-sm border border-[var(--app-border)] flex flex-col gap-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1 group">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl opacity-60" />
 
-          <div className="p-3 bg-rose-50 dark:bg-rose-950/40 rounded-2xl text-rose-500 dark:text-rose-400 shadow-sm w-max transition-all duration-300 group-hover:scale-110 relative z-10 border border-rose-100 dark:border-rose-800/20">
+          <div className="p-3 bg-[var(--app-bg)] rounded-2xl text-rose-500 shadow-sm w-max transition-all duration-300 group-hover:scale-110 relative z-10 border border-[var(--app-border)]">
             <Award size={18} strokeWidth={2.5} />
           </div>
           <div className="relative z-10">

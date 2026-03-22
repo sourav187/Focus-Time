@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Lock, Mail } from 'lucide-react';
 
-export default function LoginModal({ isOpen, onClose, onSave, currentUser }) {
+export default function LoginModal({ isOpen, onClose, onSave, currentUser, error, clearError }) {
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -50,7 +50,15 @@ export default function LoginModal({ isOpen, onClose, onSave, currentUser }) {
         ) : (
           <>
             <h3 className="text-2xl font-bold text-center text-[var(--app-text)] mb-2">{isRegistering ? 'Create Account' : 'Welcome Back'}</h3>
-            <p className="text-sm font-medium text-center text-[var(--app-text-muted)] mb-8">{isRegistering ? 'Sign up to sync your sessions.' : 'Sign in to access your dashboard.'}</p>
+            <p className="text-sm font-medium text-center text-[var(--app-text-muted)] mb-6">{isRegistering ? 'Sign up to sync your sessions.' : 'Sign in to access your dashboard.'}</p>
+
+            {error && (
+              <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
+                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="flex-1 leading-relaxed">{error}</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-[var(--app-text-muted)] mb-2 ml-1 flex items-center gap-1.5"><Mail size={14} /> Email Address</label>
@@ -80,7 +88,10 @@ export default function LoginModal({ isOpen, onClose, onSave, currentUser }) {
               <div className="mt-2 text-center">
                 <button
                   type="button"
-                  onClick={() => setIsRegistering(!isRegistering)}
+                  onClick={() => {
+                    clearError();
+                    setIsRegistering(!isRegistering);
+                  }}
                   className="text-xs font-bold text-[var(--app-text-muted)] hover:text-[var(--app-accent)] transition-colors"
                 >
                   {isRegistering ? "Already have an account? Sign In" : "Don't have an account? Register"}

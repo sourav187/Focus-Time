@@ -76,9 +76,16 @@ export default function SessionSetup({
               disabled={availableTasks.length === 0}
             >
               <option value="">{availableTasks.length === 0 ? 'No tasks found...' : 'Choose a task from list...'}</option>
-              {availableTasks.map(t => (
-                <option key={t.id} value={t.id}>{t.title} ({t.needed - t.logged}h left)</option>
-              ))}
+              {availableTasks.map(t => {
+                const leftHours = Math.max(0, t.needed - t.logged);
+                const totalMins = Math.round(leftHours * 60);
+                const h = Math.floor(totalMins / 60);
+                const m = totalMins % 60;
+                const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+                return (
+                  <option key={t.id} value={t.id}>{t.title} ({timeStr} left)</option>
+                );
+              })}
             </select>
             <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 ${availableTasks.length === 0 ? 'text-gray-400' : 'text-[var(--app-accent)]'}`}>
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"></path></svg>

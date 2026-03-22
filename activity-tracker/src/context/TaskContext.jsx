@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../utils/supabaseClient';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { taskService, statsService } from '../services/dataService';
 
 const TaskContext = createContext();
 
@@ -8,262 +8,170 @@ export const useTasks = () => useContext(TaskContext);
 export const TaskProvider = ({ children, user }) => {
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [todayFocus, setTodayFocus] = useState(0); // in hours
+  const [todayFocus, setTodayFocus] = useState(0);
   const [todaySessions, setTodaySessions] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(1);
+  const [dailyGoalMinutes, setDailyGoalMinutes] = useState(0);
+  const [isGoalSet, setIsGoalSet] = useState(false);
+  const [totalFocusTime, setTotalFocusTime] = useState(0);
+  const [dailyHistory, setDailyHistory] = useState([]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Timer Settings & Mode
+  const [timerSettings, setTimerSettings] = useState({
+    focusDuration: 25,
+    shortBreakDuration: 5,
+    longBreakDuration: 15,
+    sessionsBeforeLongBreak: 4
+  });
+  const [timerMode, setTimerMode] = useState('focus');
+  const [completedSessions, setCompletedSessions] = useState(0);
 
-  // Helper to calculate streak from history
-  const calculateStreak = (history) => {
-    if (!history || history.length === 0) return 0;
-    
-    // history is already ordered by date DESC from Supabase
-    const dates = history.map(h => h.stats_date);
-    let streak = 0;
-    let checkDate = new Date(); // Start with today
-    
-    // If the latest log isn't today OR yesterday, the streak is broken
-    const latestLog = dates[0];
-    const checkStrToday = checkDate.toISOString().split('T')[0];
-    
-    checkDate.setDate(checkDate.getDate() - 1);
-    const checkStrYesterday = checkDate.toISOString().split('T')[0];
-    
-    if (latestLog !== checkStrToday && latestLog !== checkStrYesterday) {
-      return 0; 
-    }
+  const lastSyncedStats = useRef({ focus: 0, sessions: 0, goal: 0, isGoalSet: false });
 
-    // Reset checkDate to the latest log date to start counting correctly
-    checkDate = new Date(latestLog);
-    
-    for (const logDate of dates) {
-      const expectedStr = checkDate.toISOString().split('T')[0];
-      if (logDate === expectedStr) {
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-    return streak;
+  // Get local YYYY-MM-DD
+  const getLocalDate = () => {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
   };
 
-  // Step 1: Initialize stats (Supabase OR Guest Mode)
+  const todayStr = getLocalDate();
+
+  // Initialization
   useEffect(() => {
-    if (!user) {
-      // GUEST MODE: Load from localStorage
-      const savedStats = localStorage.getItem(`focus_stats_guest_${todayStr}`);
-      if (savedStats) {
-        const { focus, sessions } = JSON.parse(savedStats);
-        setTodayFocus(focus || 0);
-        setTodaySessions(sessions || 0);
-      } else {
-        setTodayFocus(0);
-        setTodaySessions(0);
-      }
-      setCurrentStreak(1);
-      return;
-    }
+    const initData = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedTasks = await taskService.fetchTasks(user);
+        setTasks(fetchedTasks || []);
 
-    // AUTH MODE: Fetch from Supabase
-    const fetchDailyStats = async () => {
-      // 1. Fetch Today's Stats
-      const { data: todayData } = await supabase
-        .from('daily_stats')
-        .select('total_focus_hours, sessions_count')
-        .eq('user_id', user.id)
-        .eq('stats_date', todayStr)
-        .single();
+        const stats = await statsService.fetchDailyStats(user, todayStr);
+        
+        if (stats.today) {
+          const t = stats.today;
+          setTodayFocus(Number(t.total_focus_hours || t.focus || 0));
+          setTodaySessions(t.sessions_count || t.sessions || 0);
+          const goal = Number(t.daily_goal_minutes || t.goal || 0);
+          setDailyGoalMinutes(goal);
+          setIsGoalSet(goal > 0);
+          if (t.settings) setTimerSettings(t.settings);
+        } else {
+          setTodayFocus(0);
+          setTodaySessions(0);
+          setDailyGoalMinutes(0);
+          setIsGoalSet(false);
+        }
 
-      if (todayData) {
-        setTodayFocus(Number(todayData.total_focus_hours) || 0);
-        setTodaySessions(todayData.sessions_count || 0);
-      } else {
-        setTodayFocus(0);
-        setTodaySessions(0);
-      }
+        if (stats.history) {
+          setDailyHistory(stats.history);
+          setCurrentStreak(statsService.calculateStreak(stats.history));
+          const total = stats.history.reduce((acc, row) => acc + Number(row.total_focus_hours), 0);
+          setTotalFocusTime(Number(total.toFixed(2)));
+        }
 
-      // 2. Fetch History for Streak and Totals
-      const { data: historyData } = await supabase
-        .from('daily_stats')
-        .select('stats_date, total_focus_hours')
-        .eq('user_id', user.id)
-        .order('stats_date', { ascending: false });
-
-      if (historyData && historyData.length > 0) {
-        setCurrentStreak(calculateStreak(historyData));
-        const total = historyData.reduce((acc, row) => acc + Number(row.total_focus_hours), 0);
-        setTotalFocusTime(Number(total.toFixed(2)));
-      } else {
-        setCurrentStreak(0);
-        setTotalFocusTime(0);
+        // Sync ref
+        lastSyncedStats.current = {
+          focus: Number(todayFocus),
+          sessions: todaySessions,
+          goal: dailyGoalMinutes,
+          isGoalSet: isGoalSet
+        };
+      } catch (err) {
+        console.error("Initialization error:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchDailyStats();
+    initData();
   }, [user, todayStr]);
 
-  // Step 2: Sync stats (Supabase OR Guest Mode)
+  // Sync effect
   useEffect(() => {
-    if (user) {
-      // AUTH MODE: Sync to DB if we have focus/sessions
-      if (todayFocus > 0 || todaySessions > 0) {
-        const syncStats = async () => {
-          await supabase
-            .from('daily_stats')
-            .upsert({
-              user_id: user.id,
-              stats_date: todayStr,
-              total_focus_hours: todayFocus,
-              sessions_count: todaySessions,
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id, stats_date' });
-        };
-        syncStats();
-      }
-    } else {
-      // GUEST MODE: Sync to localStorage
-      localStorage.setItem(`focus_stats_guest_${todayStr}`, JSON.stringify({
-        focus: todayFocus,
-        sessions: todaySessions
-      }));
-    }
-  }, [todayFocus, todaySessions, user, todayStr]);
+    if (isLoading) return;
+    const hasChanged =
+      todayFocus !== lastSyncedStats.current.focus ||
+      todaySessions !== lastSyncedStats.current.sessions ||
+      dailyGoalMinutes !== lastSyncedStats.current.goal ||
+      isGoalSet !== lastSyncedStats.current.isGoalSet;
 
-  useEffect(() => {
-    if (!user) {
-      setTasks([]);
-      setIsLoading(false);
-      return;
-    }
+    if (!hasChanged) return;
 
-    const fetchTasks = async () => {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching tasks:', error.message);
-      } else {
-        // Map data from DB to frontend model
-        const mappedTasks = data.map(t => ({
-          id: t.id,
-          title: t.title,
-          date: t.task_date,
-          needed: Number(t.needed),
-          logged: Number(t.logged),
-          priority: t.priority
-        }));
-        setTasks(mappedTasks);
-      }
-      setIsLoading(false);
+    const statsToSync = {
+      focus: todayFocus,
+      sessions: todaySessions,
+      goal: dailyGoalMinutes,
+      isGoalSet,
+      settings: timerSettings
     };
 
-    fetchTasks();
-  }, [user]);
+    statsService.syncStats(user, todayStr, statsToSync).then(() => {
+      lastSyncedStats.current = { focus: todayFocus, sessions: todaySessions, goal: dailyGoalMinutes, isGoalSet: isGoalSet };
+    });
+  }, [todayFocus, todaySessions, dailyGoalMinutes, isGoalSet, timerSettings, user, todayStr, isLoading]);
 
-  const addTask = async (newTask) => {
-    if (!user) return alert("Please login to save tasks.");
-    
-    const dbTask = {
-      user_id: user.id,
-      title: newTask.title,
-      task_date: newTask.date,
-      needed: Number(newTask.needed),
-      logged: 0,
-      priority: newTask.priority || 'Medium'
-    };
+  // Actions
+  const addTask = async (taskOrTasks) => {
+    try {
+      const taskArr = Array.isArray(taskOrTasks) ? taskOrTasks : [taskOrTasks];
+      const added = await taskService.addTask(user, taskArr);
+      setTasks(prev => [...added, ...prev]);
+    } catch (err) {
+      console.error("Error adding tasks:", err);
+    }
+  };
 
-    const { data, error } = await supabase.from('tasks').insert([dbTask]).select();
-    
-    if (error) {
-       console.error("Error adding task:", error.message);
-    } else if (data && data.length > 0) {
-       const t = data[0];
-       setTasks(prev => [{
-          id: t.id,
-          title: t.title,
-          date: t.task_date,
-          needed: Number(t.needed),
-          logged: Number(t.logged),
-          priority: t.priority
-       }, ...prev]);
+  const updateTask = async (taskId, updates) => {
+    try {
+      await taskService.updateTask(user, taskId, updates);
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    } catch (err) {
+      console.error("Error updating task:", err);
+    }
+  };
+
+  const deleteTask = async (taskId) => {
+    try {
+      await taskService.deleteTask(user, taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+    } catch (err) {
+      console.error("Error deleting task:", err);
     }
   };
 
   const toggleTaskStatus = async (taskId) => {
-    if (!user) return;
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-
     const isCompleted = task.logged >= task.needed;
     const newLogged = isCompleted ? 0 : task.needed;
-
-    // Optimistic local update
-    setTasks(prev => prev.map(t => 
-      t.id === taskId ? { ...t, logged: newLogged } : t
-    ));
-
-    // DB update
-    const { error } = await supabase
-      .from('tasks')
-      .update({ logged: newLogged })
-      .eq('id', taskId);
-
-    if (error) console.error("Error toggling status:", error.message);
+    await updateTask(taskId, { logged: newLogged });
   };
 
   const addFocusTime = (hoursToAdd) => {
     if (!hoursToAdd || hoursToAdd <= 0) return;
-    const hours = Number(hoursToAdd.toFixed(4));
-    setTodayFocus(prev => Number((prev + hours).toFixed(4)));
+    setTodayFocus(prev => Number((prev + hoursToAdd).toFixed(4)));
   };
 
   const logFocusToTask = async (taskId, hoursToAdd) => {
-    if (!user || !taskId) return;
-    
-    const hours = Number(hoursToAdd.toFixed(4));
-    if (hours <= 0) return;
-
+    if (!taskId || hoursToAdd <= 0) return;
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-
-    const newLogged = Number((task.logged + hours).toFixed(4));
-
-    // Update local task state
-    setTasks(prev => prev.map(t => 
-      t.id === taskId ? { ...t, logged: newLogged } : t
-    ));
-
-    // Sync with DB
-    const { error } = await supabase
-      .from('tasks')
-      .update({ logged: newLogged })
-      .eq('id', taskId);
-      
-    if (error) console.error("Error syncing task time:", error.message);
+    const newLogged = Number((task.logged + hoursToAdd).toFixed(4));
+    await updateTask(taskId, { logged: newLogged });
   };
 
-  const incrementSessions = () => {
-    setTodaySessions(prev => prev + 1);
-  };
+  const incrementSessions = () => setTodaySessions(prev => prev + 1);
 
   return (
-    <TaskContext.Provider value={{ 
-      tasks, 
-      addTask, 
-      toggleTaskStatus, 
-      logFocusToTask, 
-      addFocusTime,
-      todayStr, 
-      isLoading,
-      todayFocus,
-      todaySessions,
-      currentStreak,
-      incrementSessions
+    <TaskContext.Provider value={{
+      tasks, addTask, updateTask, toggleTaskStatus, deleteTask,
+      addFocusTime, logFocusToTask, todayStr, isLoading,
+      todayFocus, todaySessions, currentStreak, dailyGoalMinutes,
+      setDailyGoalMinutes, isGoalSet, setIsGoalSet, totalFocusTime,
+      timerSettings, setTimerSettings, timerMode, setTimerMode,
+      completedSessions, setCompletedSessions, incrementSessions,
+      dailyHistory
     }}>
       {children}
     </TaskContext.Provider>

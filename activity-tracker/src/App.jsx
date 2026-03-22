@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Coffee, LayoutDashboard, BarChart2, User, ListTodo } from 'lucide-react';
-import TimerView from './pages/TimerView';
+import DashboardView from './pages/DashboardView';
 import StatsView from './pages/StatsView';
 import TasksView from './pages/TasksView';
-import LoginModal from './components/LoginModal';
+import LoginModal from './components/Login/LoginModal';
 import { TaskProvider } from './context/TaskContext';
 import { supabase } from './utils/supabaseClient';
 
@@ -57,10 +57,10 @@ function App() {
 
   const renderTab = () => {
     switch(currentTab) {
-      case 'dashboard': return <TimerView />;
+      case 'dashboard': return <DashboardView />;
       case 'stats': return <StatsView />;
       case 'tasks': return <TasksView />;
-      default: return <TimerView />;
+      default: return <DashboardView />;
     }
   };
 

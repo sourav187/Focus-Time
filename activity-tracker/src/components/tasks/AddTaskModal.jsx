@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, Calendar, Clock, ChevronRight, Briefcase, User, Flag, Plus, Check } from 'lucide-react';
-import { useTasks } from '../context/TaskContext';
+import { useTasks } from '../../context/TaskContext';
 
 export default function AddTaskModal({ isOpen, onClose, editingTask = null }) {
   const { addTask, updateTask, todayStr } = useTasks();

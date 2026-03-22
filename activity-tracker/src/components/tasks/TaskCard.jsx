@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Circle, Briefcase, User, Pencil, Trash2, AlertTriangle, GripVertical, Check } from 'lucide-react';
-import { useTasks } from '../context/TaskContext';
+import { useTasks } from '../../context/TaskContext';
 
 // --- Style Maps ---
 const PRIORITY = {
-  High:   { dot: 'bg-rose-500',   bar: 'bg-rose-400',   text: 'text-rose-600',   label: 'bg-rose-50 text-rose-600 border-rose-200',  top: 'bg-rose-400' },
-  Medium: { dot: 'bg-amber-400',  bar: 'bg-amber-400',  text: 'text-amber-600',  label: 'bg-amber-50 text-amber-600 border-amber-200', top: 'bg-amber-300' },
-  Low:    { dot: 'bg-teal-400',   bar: 'bg-teal-400',   text: 'text-teal-600',   label: 'bg-teal-50 text-teal-600 border-teal-200',   top: 'bg-teal-300'  },
+  High: { dot: 'bg-rose-500', bar: 'bg-rose-400', text: 'text-rose-600', label: 'bg-rose-50 text-rose-600 border-rose-200', top: 'bg-rose-400' },
+  Medium: { dot: 'bg-amber-400', bar: 'bg-amber-400', text: 'text-amber-600', label: 'bg-amber-50 text-amber-600 border-amber-200', top: 'bg-amber-300' },
+  Low: { dot: 'bg-teal-400', bar: 'bg-teal-400', text: 'text-teal-600', label: 'bg-teal-50 text-teal-600 border-teal-200', top: 'bg-teal-300' },
 };
 
 const CATEGORY = {
-  Office:   { icon: Briefcase, style: 'text-blue-400' },
-  Personal: { icon: User,      style: 'text-violet-400' },
+  Office: { icon: Briefcase, style: 'text-blue-400' },
+  Personal: { icon: User, style: 'text-violet-400' },
 };
 
 const fmtMins = (hours) => {
@@ -67,17 +67,17 @@ export default function TaskCard({ task, onEdit, isOverdue }) {
   const { toggleTaskStatus, deleteTask } = useTasks();
   const [confirm, setConfirm] = useState(null); // null | 'complete' | 'delete'
 
-  const priority  = task.priority || 'Medium';
-  const category  = task.category || 'Personal';
-  const pStyle    = PRIORITY[priority]  || PRIORITY.Medium;
-  const catMeta   = CATEGORY[category]  || CATEGORY.Personal;
-  const CatIcon   = catMeta.icon;
+  const priority = task.priority || 'Medium';
+  const category = task.category || 'Personal';
+  const pStyle = PRIORITY[priority] || PRIORITY.Medium;
+  const catMeta = CATEGORY[category] || CATEGORY.Personal;
+  const CatIcon = catMeta.icon;
 
   const isCompleted = task.logged >= task.needed;
-  const neededMins  = Math.round((task.needed || 0) * 60);
-  const loggedMins  = Math.round((task.logged || 0) * 60);
-  const leftMins    = Math.max(0, neededMins - loggedMins);
-  const progress    = neededMins > 0 ? Math.min(100, (loggedMins / neededMins) * 100) : 0;
+  const neededMins = Math.round((task.needed || 0) * 60);
+  const loggedMins = Math.round((task.logged || 0) * 60);
+  const leftMins = Math.max(0, neededMins - loggedMins);
+  const progress = neededMins > 0 ? Math.min(100, (loggedMins / neededMins) * 100) : 0;
 
   // Format date for overdue display
   const dateObj = new Date(task.date + 'T12:00:00'); // Use noon to avoid TZ shift

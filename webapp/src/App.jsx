@@ -120,7 +120,7 @@ function App() {
     } else if (mode === 'RESET') {
       console.log("Attempting password reset for:", email);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin
+        redirectTo: import.meta.env.VITE_SITE_URL || window.location.origin
       });
       if (error) {
         authError = error;

@@ -4,6 +4,7 @@ import DashboardView from './pages/DashboardView';
 import StatsView from './pages/StatsView';
 import TasksView from './pages/TasksView';
 import LoginModal from './components/Login/LoginModal';
+import UpdatePasswordScreen from './components/Login/UpdatePasswordScreen';
 import { TaskProvider } from './context/TaskContext';
 import { supabase } from './utils/supabaseClient';
 import { profileService } from './services/dataService';
@@ -12,7 +13,9 @@ function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [showLogin, setShowLogin] = useState(false);
   const [authError, setAuthError] = useState(null);
+  const [authSuccess, setAuthSuccess] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
+  const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [darkMode, setDarkMode] = useState(() => {
@@ -34,14 +37,29 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Intercept magic link / password reset errors from the URL hash
+    const hash = window.location.hash.substring(1);
+    const hashParams = new URLSearchParams(hash);
+    const urlError = hashParams.get('error_description');
+
+    if (urlError) {
+      setAuthError(urlError.replace(/\+/g, ' '));
+      setAuthSuccess(null);
+      setShowLogin(true);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
     const initAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUserProfile(session?.user ?? null);
     };
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUserProfile(session?.user ?? null);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoveringPassword(true);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -73,6 +91,7 @@ function App() {
 
     const { email, password, mode } = payload;
     let authError = null;
+    setAuthSuccess(null);
 
     if (mode === 'REGISTER') {
       console.log("Attempting registration check for:", email);
@@ -97,7 +116,18 @@ function App() {
       setAuthError(null);
       const { error } = await supabase.auth.signUp({ email, password });
       authError = error;
-      if (!authError) alert("Check your email for a verification link.");
+      if (!authError) setAuthSuccess("Success! Check your email for a verification link.");
+    } else if (mode === 'RESET') {
+      console.log("Attempting password reset for:", email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
+      if (error) {
+        authError = error;
+      } else {
+        setAuthSuccess("Password reset email sent! Check your inbox.");
+        return;
+      }
     } else {
       console.log("Attempting login for:", email);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -134,6 +164,9 @@ function App() {
 
   return (
     <TaskProvider user={userProfile}>
+      {isRecoveringPassword && (
+        <UpdatePasswordScreen onComplete={() => setIsRecoveringPassword(false)} />
+      )}
       <div className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] font-sans selection:bg-[var(--app-accent)] selection:text-white transition-colors duration-300">
         {/* Top Navigation */}
         <nav className="px-6 py-6 max-w-6xl mx-auto flex items-center justify-between">
@@ -222,10 +255,14 @@ function App() {
         {/* Login Modal Config */}
         <LoginModal
           isOpen={showLogin}
-          onClose={() => setShowLogin(false)}
+          onClose={() => {
+            setShowLogin(false);
+            setAuthSuccess(null);
+          }}
           onSave={handleAuth}
           currentUser={userProfile}
           error={authError}
+          successMsg={authSuccess}
           clearError={() => setAuthError(null)}
         />
       </div>
